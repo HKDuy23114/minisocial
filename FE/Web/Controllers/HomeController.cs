@@ -13,26 +13,36 @@ public sealed class HomeController : Controller
     public async Task<IActionResult> Index(int page = 1)
     {
         var vm = new FeedViewModel { Page = page < 1 ? 1 : page };
-        vm.Feed = await _api.GetFeedAsync(vm.Page, 10);
+        try
+        {
+            vm.Feed = await _api.GetFeedAsync(vm.Page, 10);
+        }
+        catch (Exception ex) when (IsApiDown(ex))
+        {
+            TempData["Error"] = Loc.T(HttpContext, "feed.loadError");
+        }
 
         if (User.Identity?.IsAuthenticated == true)
         {
-            try { vm.MyGroups = await _api.GetMyGroupsAsync(); } catch (ApiException) { }
+            try { vm.MyGroups = await _api.GetMyGroupsAsync(); } catch (Exception ex) when (IsApiDown(ex)) { }
             var myIds = vm.MyGroups.Select(g => g.Id).ToHashSet();
             try
             {
                 var all = await _api.GetGroupsAsync();
                 vm.SuggestedGroups = all.Where(g => !myIds.Contains(g.Id)).Take(5).ToList();
             }
-            catch (ApiException) { }
+            catch (Exception ex) when (IsApiDown(ex)) { }
         }
         else
         {
-            try { vm.SuggestedGroups = (await _api.GetGroupsAsync()).Take(5).ToList(); } catch (ApiException) { }
+            try { vm.SuggestedGroups = (await _api.GetGroupsAsync()).Take(5).ToList(); } catch (Exception ex) when (IsApiDown(ex)) { }
         }
 
         return View(vm);
     }
+
+    private static bool IsApiDown(Exception ex) =>
+        ex is ApiException or HttpRequestException or TaskCanceledException;
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
