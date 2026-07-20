@@ -42,7 +42,8 @@ public sealed class GroupsController : Controller
     public IActionResult Create() => View(new CreateGroupRequest());
 
     [Authorize, HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create(CreateGroupRequest req)
+    [RequestSizeLimit(52_428_800)]
+    public async Task<IActionResult> Create(CreateGroupRequest req, IFormFile? avatar)
     {
         if (string.IsNullOrWhiteSpace(req.Name))
         {
@@ -51,6 +52,7 @@ public sealed class GroupsController : Controller
         }
         try
         {
+            await ApplyAvatarAsync(req, avatar);
             var id = await _api.CreateGroupAsync(req);
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -70,10 +72,25 @@ public sealed class GroupsController : Controller
     }
 
     [Authorize, HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(Guid id, CreateGroupRequest req)
+    [RequestSizeLimit(52_428_800)]
+    public async Task<IActionResult> Edit(Guid id, CreateGroupRequest req, IFormFile? avatar)
     {
-        try { await _api.UpdateGroupAsync(id, req); return RedirectToAction(nameof(Details), new { id }); }
+        try
+        {
+            await ApplyAvatarAsync(req, avatar);
+            await _api.UpdateGroupAsync(id, req);
+            return RedirectToAction(nameof(Details), new { id });
+        }
         catch (ApiException ex) { ModelState.AddModelError(string.Empty, ex.Message); return View(req); }
+    }
+
+    // When the user picks a file from their device, upload it and use its URL as the group avatar.
+    private async Task ApplyAvatarAsync(CreateGroupRequest req, IFormFile? avatar)
+    {
+        if (avatar == null || avatar.Length == 0) return;
+        await using var stream = avatar.OpenReadStream();
+        var uploaded = await _api.UploadAsync(stream, avatar.FileName, avatar.ContentType);
+        req.AvatarUrl = uploaded.Url;
     }
 
     [Authorize, HttpPost, ValidateAntiForgeryToken]

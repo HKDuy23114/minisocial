@@ -64,6 +64,8 @@ public static class Loc
         ["groups.name"] = ("Tên nhóm", "Group name"),
         ["groups.description"] = ("Mô tả", "Description"),
         ["groups.avatar"] = ("Ảnh đại diện (URL)", "Avatar (URL)"),
+        ["groups.avatarUpload"] = ("Ảnh đại diện (chọn từ thiết bị)", "Avatar (choose from device)"),
+        ["groups.avatarUrlOptional"] = ("Hoặc dán URL ảnh", "Or paste an image URL"),
         ["groups.edit"] = ("Sửa nhóm", "Edit group"),
         ["groups.delete"] = ("Xoá nhóm", "Delete group"),
         ["groups.kick"] = ("Xoá khỏi nhóm", "Remove"),
