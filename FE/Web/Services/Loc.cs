@@ -48,6 +48,7 @@ public static class Loc
         ["post.deleteConfirm"] = ("Xoá bài viết này?", "Delete this post?"),
         ["post.send"] = ("Gửi", "Send"),
         ["post.noPosts"] = ("Chưa có bài viết nào.", "No posts yet."),
+        ["feed.loadError"] = ("Không tải được bảng tin. Vui lòng kiểm tra máy chủ và thử lại.", "Couldn't load the feed. Please check the server and try again."),
         ["post.loadMore"] = ("Xem thêm", "Load more"),
         ["post.mediaFailed"] = ("Không tải được ảnh", "Media failed to load"),
         ["post.save"] = ("Lưu", "Save"),
