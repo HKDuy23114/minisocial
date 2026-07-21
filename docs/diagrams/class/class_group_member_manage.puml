@@ -1,0 +1,88 @@
+@startuml class_group_member_manage
+title Group Member Management (Owner: Kick / Change Role) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.GroupsController" as Web {
+  -_api : ApiClient
+  +Kick(id : Guid, userId : String) : IActionResult
+  +ChangeRole(id : Guid, userId : String, role : int) : IActionResult
+}
+
+class ApiClient {
+  +KickMemberAsync(id : Guid, userId : String) : void
+  +ChangeRoleAsync(id : Guid, userId : String, role : int) : void
+}
+
+class GroupsController {
+  -_service : IGroupService
+  +CurrentUserId : String
+  +Kick(id : Guid, userId : String) : IActionResult
+  +ChangeRole(id : Guid, userId : String,\n request : ChangeRoleRequest) : IActionResult
+}
+
+interface IGroupService {
+  +KickMemberAsync(groupId : Guid, targetUserId : String, requesterId : String) : Task
+  +ChangeRoleAsync(groupId : Guid, targetUserId : String, role : int, requesterId : String) : Task
+}
+class GroupService {
+  -_repo : IGroupRepository
+  +KickMemberAsync(groupId : Guid, targetUserId : String, requesterId : String) : Task
+  +ChangeRoleAsync(groupId : Guid, targetUserId : String, role : int, requesterId : String) : Task
+  -GetActiveGroupAsync(groupId : Guid) : Group
+}
+
+interface IGroupRepository {
+  +GetByIdAsync(id : Guid) : Group
+  +SaveChangesAsync() : Task
+}
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Group
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +GroupMembers : DbSet<GroupMember>
+}
+
+class ChangeRoleRequest {
+  +Role : int
+}
+class Group {
+  +Id : Guid
+  +OwnerId : String
+  +Members : ICollection<GroupMember>
+}
+class GroupMember {
+  +GroupId : Guid
+  +UserId : String
+  +Role : int
+}
+enum GroupRole {
+  Member = 0
+  Admin = 1
+  Owner = 2
+}
+
+Web --> ApiClient
+ApiClient ..> GroupsController : DELETE /members/{userId} , PUT /members/{userId}/role
+GroupsController ..> ChangeRoleRequest
+GroupsController --> IGroupService
+GroupService ..|> IGroupService
+GroupService --> IGroupRepository
+GroupRepository ..|> IGroupRepository
+GroupRepository --> AppDbContext
+AppDbContext --> Group
+Group "1" o-- "many" GroupMember
+GroupMember ..> GroupRole
+GroupService ..> Group
+@enduml

@@ -1,0 +1,87 @@
+@startuml class_admin_users
+title Admin - Manage Users (view / delete) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.AdminController" as Web {
+  -_api : ApiClient
+  +Index(keyword : String, page : int) : IActionResult
+  +DeleteUser(id : String, keyword : String) : IActionResult
+}
+
+class ApiClient {
+  +GetUsersAsync(keyword : String, page : int, pageSize : int) : PagedResult<UserResponse>
+  +DeleteUserAsync(id : String) : void
+}
+
+class AdminController <<[Authorize(Roles="Admin")]>> {
+  -_adminService : IAdminService
+  +GetUsers(keyword : String, page : int) : IActionResult
+  +DeleteUser(userId : String) : IActionResult
+}
+
+interface IAdminService {
+  +GetUsersAsync(query : UserQuery) : PagedResult<UserResponse>
+  +DeleteUserAsync(userId : String) : Task
+}
+class AdminService {
+  -_repo : IAdminRepository
+  +GetUsersAsync(query : UserQuery) : PagedResult<UserResponse>
+  +DeleteUserAsync(userId : String) : Task
+  -{static} MapToResponse(u : AppUser) : UserResponse
+}
+
+interface IAdminRepository {
+  +GetUsersAsync(query : UserQuery) : PagedResult<AppUser>
+  +GetUserByIdAsync(userId : String) : AppUser
+  +SaveChangesAsync() : Task
+}
+class AdminRepository {
+  -_context : AppDbContext
+  +GetUsersAsync(query : UserQuery) : PagedResult<AppUser>
+  +GetUserByIdAsync(userId : String) : AppUser
+  +SaveChangesAsync() : Task
+}
+class AppDbContext {
+  +Users : DbSet<AppUser>
+}
+
+class UserQuery {
+  +Keyword : String
+  +Page : int
+  +PageSize : int
+}
+class UserResponse {
+  +Id : String
+  +UserName : String
+  +Email : String
+  +DisplayName : String
+  +IsDeleted : bool
+}
+class AppUser {
+  +Id : String
+  +UserName : String
+  +Email : String
+  +DisplayName : String
+  +IsDeleted : bool
+}
+
+Web --> ApiClient
+ApiClient ..> AdminController : GET /api/admin/users , DELETE /users/{id}
+AdminController --> IAdminService
+AdminService ..|> IAdminService
+AdminService --> IAdminRepository
+AdminRepository ..|> IAdminRepository
+AdminRepository --> AppDbContext
+AppDbContext --> AppUser
+AdminService ..> UserQuery
+AdminService ..> UserResponse
+note right of AdminService : DeleteUser = soft delete (IsDeleted=true);\nmissing/deleted -> KeyNotFoundException
+@enduml

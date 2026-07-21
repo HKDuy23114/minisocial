@@ -1,0 +1,104 @@
+@startuml class_group_post_create
+title Create Post in Group (Group Posts) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.PostsController" as Web {
+  -_api : ApiClient
+  +Create(content : String, groupId : Guid,\n media : IFormFile, returnUrl : String) : IActionResult
+  -Back(returnUrl : String, groupId : Guid) : IActionResult
+}
+
+class ApiClient {
+  +CreatePostAsync(req : CreatePostRequest) : Guid
+  +UploadAsync(stream, fileName, contentType) : MediaUploadResult
+}
+class MediaController {
+  +Upload(file : IFormFile) : MediaUploadResult
+}
+
+class PostsController {
+  -_postService : IPostService
+  +CurrentUserId : String
+  +Create(request : CreatePostRequest) : IActionResult
+}
+
+interface IPostService {
+  +CreateAsync(request : CreatePostRequest, userId : String) : Guid
+  +CreateGroupPostAsync(groupId : Guid, request : CreatePostRequest, userId : String) : Guid
+}
+class PostService {
+  -_postRepository : IPostRepository
+  -_groupRepository : IGroupRepository
+  -_contentFilter : IContentFilter
+  +CreateAsync(request : CreatePostRequest, userId : String) : Guid
+  +CreateGroupPostAsync(groupId : Guid, request : CreatePostRequest, userId : String) : Guid
+  -ValidateContent(request : CreatePostRequest) : void
+  -GetActiveGroupAsync(groupId : Guid) : Group
+  -{static} BuildPost(request, userId, groupId) : Post
+}
+interface IContentFilter {
+  +IsAllowed(content : String) : bool
+}
+
+interface IPostRepository {
+  +AddAsync(post : Post) : Task
+  +SaveChangesAsync() : Task
+}
+class PostRepository {
+  -_context : AppDbContext
+  +AddAsync(post : Post) : Task
+  +SaveChangesAsync() : Task
+}
+class GroupRepository {
+  +GetByIdAsync(id : Guid) : Group
+}
+class AppDbContext {
+  +Posts : DbSet<Post>
+  +Groups : DbSet<Group>
+}
+
+class CreatePostRequest {
+  +GroupId : Guid
+  +Content : String
+  +MediaUrl : String
+  +MediaType : int
+}
+class Post {
+  +Id : Guid
+  +UserId : String
+  +GroupId : Guid
+  +Content : String
+  +MediaUrl : String
+  +MediaType : int
+  +IsDeleted : bool
+}
+class Group {
+  +Id : Guid
+  +IsDeleted : bool
+  +Members : ICollection<GroupMember>
+}
+
+Web --> ApiClient
+ApiClient ..> PostsController : POST /api/posts
+ApiClient ..> MediaController : POST /api/media
+PostsController --> IPostService
+PostService ..|> IPostService
+PostService --> IPostRepository
+PostService --> GroupRepository
+PostService --> IContentFilter
+PostRepository ..|> IPostRepository
+PostRepository --> AppDbContext
+GroupRepository --> AppDbContext
+AppDbContext --> Post
+PostService ..> CreatePostRequest
+PostService ..> Post
+PostService ..> Group
+@enduml

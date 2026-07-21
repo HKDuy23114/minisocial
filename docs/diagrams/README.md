@@ -20,13 +20,26 @@ java -jar plantuml.jar -tsvg "**/*.puml" -o rendered
 
 ## Class diagrams (`class/`)
 
-| File | Covers |
-|------|--------|
-| `class_group.puml` | GroupService (BLL), GroupRepository (DAL), GroupsController, entities Group/GroupMember, enum GroupRole, DTOs |
-| `class_post.puml` | PostService/GroupPosts, PostRepository, IContentFilter, Post entity, post DTOs |
-| `class_search.puml` | SearchService, SearchRepository, search DTOs (User/Group/Post) |
-| `class_admin.puml` | AdminService, AdminRepository, dashboard stats / posts-per-day / users DTOs |
-| `class_frontend_theme_localization.puml` | LangController, Loc (resource store), _Layout switcher, site.js theme, CSS variables |
+One diagram **per feature** (each shows only the classes + methods used by that
+feature), pairing 1-to-1 with the sequence diagrams below.
+
+| File | Feature |
+|------|---------|
+| `class_group_create.puml` | Tạo nhóm mới (form + service) |
+| `class_group_edit.puml` | Sửa nhóm (Owner) |
+| `class_group_delete.puml` | Xoá nhóm (Owner, soft delete) |
+| `class_group_list.puml` | Trang danh sách nhóm `/groups` |
+| `class_group_details.puml` | Chi tiết nhóm `/group/{id}` + feed |
+| `class_group_join_leave.puml` | Join / Leave nhóm |
+| `class_group_post_create.puml` | Đăng bài trong nhóm (Group Posts) |
+| `class_group_member_manage.puml` | Quản lý thành viên (kick / đổi role) |
+| `class_search.puml` | Search Group / Người dùng / Bài viết |
+| `class_admin_dashboard.puml` | Trang Admin `/admin` — layout dashboard |
+| `class_admin_stats.puml` | Thống kê Total Users/Posts/Comments/Groups |
+| `class_admin_posts_per_day.puml` | Biểu đồ Posts per day |
+| `class_admin_users.puml` | Quản lý Users — xem/xoá user (Admin) |
+| `class_theme.puml` | CSS variables + toggle dark/light + localStorage |
+| `class_localization.puml` | ASP.NET Localization VI/EN + resources + language switcher |
 
 ## Sequence diagrams (`sequence/`)
 

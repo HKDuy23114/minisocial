@@ -1,0 +1,86 @@
+@startuml class_group_join_leave
+title Join / Leave Group - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.GroupsController" as Web {
+  -_api : ApiClient
+  +Join(id : Guid) : IActionResult
+  +Leave(id : Guid) : IActionResult
+}
+
+class ApiClient {
+  +JoinGroupAsync(id : Guid) : void
+  +LeaveGroupAsync(id : Guid) : void
+}
+
+class GroupsController {
+  -_service : IGroupService
+  +CurrentUserId : String
+  +Join(id : Guid) : IActionResult
+  +Leave(id : Guid) : IActionResult
+}
+
+interface IGroupService {
+  +JoinGroupAsync(groupId : Guid, userId : String) : Task
+  +LeaveGroupAsync(groupId : Guid, userId : String) : Task
+}
+class GroupService {
+  -_repo : IGroupRepository
+  +JoinGroupAsync(groupId : Guid, userId : String) : Task
+  +LeaveGroupAsync(groupId : Guid, userId : String) : Task
+  -GetActiveGroupAsync(groupId : Guid) : Group
+}
+
+interface IGroupRepository {
+  +GetByIdAsync(id : Guid) : Group
+  +SaveChangesAsync() : Task
+}
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Group
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +GroupMembers : DbSet<GroupMember>
+}
+
+class Group {
+  +Id : Guid
+  +OwnerId : String
+  +IsDeleted : bool
+  +Members : ICollection<GroupMember>
+}
+class GroupMember {
+  +GroupId : Guid
+  +UserId : String
+  +Role : int
+  +JoinedDate : DateTime
+}
+enum GroupRole {
+  Member = 0
+  Admin = 1
+  Owner = 2
+}
+
+Web --> ApiClient
+ApiClient ..> GroupsController : POST /api/groups/{id}/join , /leave
+GroupsController --> IGroupService
+GroupService ..|> IGroupService
+GroupService --> IGroupRepository
+GroupRepository ..|> IGroupRepository
+GroupRepository --> AppDbContext
+AppDbContext --> Group
+Group "1" o-- "many" GroupMember
+GroupMember ..> GroupRole
+GroupService ..> Group
+@enduml

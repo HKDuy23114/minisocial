@@ -1,0 +1,89 @@
+@startuml class_group_edit
+title Edit Group - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.GroupsController" as Web {
+  -_api : ApiClient
+  +Edit(id : Guid) : IActionResult
+  +Edit(id : Guid, req : CreateGroupRequest,\n avatar : IFormFile) : IActionResult
+  -ApplyAvatarAsync(req : CreateGroupRequest,\n avatar : IFormFile) : Task
+}
+
+class ApiClient {
+  +GetGroupAsync(id : Guid) : GroupResponse
+  +UpdateGroupAsync(id : Guid, req : CreateGroupRequest) : void
+  +UploadAsync(stream, fileName, contentType) : MediaUploadResult
+}
+
+class MediaController {
+  +Upload(file : IFormFile) : MediaUploadResult
+}
+
+class GroupsController {
+  -_service : IGroupService
+  +CurrentUserId : String
+  +GetById(id : Guid) : IActionResult
+  +Update(id : Guid, request : CreateGroupRequest) : IActionResult
+}
+
+interface IGroupService {
+  +UpdateGroupAsync(groupId : Guid, req : CreateGroupRequest, userId : String) : Task
+  +GetByIdAsync(groupId : Guid) : GroupResponse
+}
+class GroupService {
+  -_repo : IGroupRepository
+  +UpdateGroupAsync(groupId : Guid, req : CreateGroupRequest, userId : String) : Task
+  +GetByIdAsync(groupId : Guid) : GroupResponse
+  -GetActiveGroupAsync(groupId : Guid) : Group
+  -{static} NormalizeUrl(value : String) : String
+}
+
+interface IGroupRepository {
+  +GetByIdAsync(id : Guid) : Group
+  +SaveChangesAsync() : Task
+}
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Group
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +SaveChangesAsync() : int
+}
+
+class CreateGroupRequest {
+  +Name : String
+  +Description : String
+  +AvatarUrl : String
+}
+class Group {
+  +Id : Guid
+  +Name : String
+  +Description : String
+  +AvatarUrl : String
+  +OwnerId : String
+  +IsDeleted : bool
+}
+
+Web --> ApiClient
+ApiClient ..> GroupsController : GET / PUT /api/groups/{id}
+ApiClient ..> MediaController : POST /api/media
+GroupsController --> IGroupService
+GroupService ..|> IGroupService
+GroupService --> IGroupRepository
+GroupRepository ..|> IGroupRepository
+GroupRepository --> AppDbContext
+AppDbContext --> Group
+GroupService ..> CreateGroupRequest
+GroupService ..> Group
+@enduml

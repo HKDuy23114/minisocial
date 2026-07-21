@@ -1,0 +1,63 @@
+@startuml class_admin_stats
+title Admin Stats (Total Users / Posts / Comments / Groups) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.AdminController" as Web {
+  -_api : ApiClient
+  +Index() : IActionResult
+}
+class ApiClient {
+  +GetStatsAsync() : DashboardStatsResponse
+}
+class AdminController <<[Authorize(Roles="Admin")]>> {
+  -_adminService : IAdminService
+  +GetStats() : IActionResult
+}
+
+interface IAdminService {
+  +GetStatsAsync() : DashboardStatsResponse
+}
+class AdminService {
+  -_repo : IAdminRepository
+  +GetStatsAsync() : DashboardStatsResponse
+}
+
+interface IAdminRepository {
+  +GetStatsAsync() : DashboardStatsResponse
+}
+class AdminRepository {
+  -_context : AppDbContext
+  +GetStatsAsync() : DashboardStatsResponse
+}
+class AppDbContext {
+  +Users : DbSet<AppUser>
+  +Posts : DbSet<Post>
+  +Comments : DbSet<Comment>
+  +Groups : DbSet<Group>
+}
+
+class DashboardStatsResponse {
+  +TotalUsers : int
+  +TotalPosts : int
+  +TotalComments : int
+  +TotalGroups : int
+}
+
+Web --> ApiClient
+ApiClient ..> AdminController : GET /api/admin/stats
+AdminController --> IAdminService
+AdminService ..|> IAdminService
+AdminService --> IAdminRepository
+AdminRepository ..|> IAdminRepository
+AdminRepository --> AppDbContext
+AdminRepository ..> DashboardStatsResponse
+note right of AdminRepository : counts only records with IsDeleted = false
+@enduml

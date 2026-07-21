@@ -1,0 +1,44 @@
+@startuml class_localization
+title Localization VI / EN (config + resources + language switcher) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class User <<Actor>>
+
+class "_Layout.cshtml" as Layout {
+  +languageSwitcher : UI component
+  +html lang attribute
+  +Context.L(key : String) : String
+}
+
+class LangController {
+  +Set(culture : String, returnUrl : String) : IActionResult
+}
+
+class "Loc (static)" as Loc {
+  +{static} CookieName : String = "lang"
+  -{static} Map : Dictionary<String,(Vi,En)>
+  +{static} IsEnglish(ctx : HttpContext) : bool
+  +{static} Current(ctx : HttpContext) : String
+  +{static} T(ctx : HttpContext, key : String) : String
+}
+
+class "lang cookie" as Cookie {
+  +value : "vi" | "en"
+  +Expires : +1 year
+}
+
+Layout --> LangController : GET /Lang/Set?culture&returnUrl
+LangController --> Cookie : append "lang"
+Layout ..> Loc : Context.L(key) -> Loc.T(ctx, key)
+Loc --> Cookie : read current language
+note right of Loc : Map (key -> (Vi, En)) is the in-memory\nresource store, equivalent of\nHome.vi.resx / Home.en.resx
+note bottom of LangController : value = culture=="en" ? "en" : "vi";\nredirect only if Url.IsLocalUrl(returnUrl)
+@enduml

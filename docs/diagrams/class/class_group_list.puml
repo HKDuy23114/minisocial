@@ -1,0 +1,83 @@
+@startuml class_group_list
+title Groups List Page (/groups) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.GroupsController" as Web {
+  -_api : ApiClient
+  +Index() : IActionResult
+}
+class GroupsIndexViewModel {
+  +AllGroups : List<GroupResponse>
+  +MyGroups : List<GroupResponse>
+}
+
+class ApiClient {
+  +GetGroupsAsync() : List<GroupResponse>
+  +GetMyGroupsAsync() : List<GroupResponse>
+}
+
+class GroupsController {
+  -_service : IGroupService
+  +CurrentUserId : String
+  +GetAll() : IActionResult
+  +Mine() : IActionResult
+}
+
+interface IGroupService {
+  +GetAllAsync() : List<GroupResponse>
+  +GetJoinedAsync(userId : String) : List<GroupResponse>
+}
+class GroupService {
+  -_repo : IGroupRepository
+  +GetAllAsync() : List<GroupResponse>
+  +GetJoinedAsync(userId : String) : List<GroupResponse>
+  -{static} MapToResponse(g : Group) : GroupResponse
+}
+
+interface IGroupRepository {
+  +GetAllAsync() : List<Group>
+  +GetJoinedAsync(userId : String) : List<Group>
+}
+class GroupRepository {
+  -_context : AppDbContext
+  +GetAllAsync() : List<Group>
+  +GetJoinedAsync(userId : String) : List<Group>
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+}
+
+class GroupResponse {
+  +Id : Guid
+  +Name : String
+  +AvatarUrl : String
+  +OwnerId : String
+  +MemberCount : int
+}
+class Group {
+  +Id : Guid
+  +Name : String
+  +IsDeleted : bool
+  +Members : ICollection<GroupMember>
+}
+
+Web --> ApiClient
+Web ..> GroupsIndexViewModel
+ApiClient ..> GroupsController : GET /api/groups , /api/groups/mine
+GroupsController --> IGroupService
+GroupService ..|> IGroupService
+GroupService --> IGroupRepository
+GroupRepository ..|> IGroupRepository
+GroupRepository --> AppDbContext
+AppDbContext --> Group
+GroupService ..> GroupResponse
+@enduml

@@ -1,0 +1,96 @@
+@startuml class_group_details
+title Group Detail (/group/{id}) + Group Feed - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.GroupsController" as Web {
+  -_api : ApiClient
+  +Details(id : Guid) : IActionResult
+}
+class GroupDetailsViewModel {
+  +Group : GroupResponse
+  +IsOwner : bool
+  +IsMember : bool
+  +Feed : PagedResult<PostResponse>
+}
+
+class ApiClient {
+  +GetGroupAsync(id : Guid) : GroupResponse
+  +GetGroupFeedAsync(id : Guid, page, pageSize) : PagedResult<PostResponse>
+}
+
+class GroupsController {
+  -_service : IGroupService
+  +GetById(id : Guid) : IActionResult
+}
+class GroupPostsController {
+  -_service : IPostService
+  +GetFeed(groupId : Guid, query : PostQuery) : IActionResult
+}
+
+interface IGroupService {
+  +GetByIdAsync(groupId : Guid) : GroupResponse
+}
+class GroupService {
+  -_repo : IGroupRepository
+  +GetByIdAsync(groupId : Guid) : GroupResponse
+  -{static} MapToResponse(g : Group) : GroupResponse
+}
+interface IPostService {
+  +GetGroupFeedAsync(groupId : Guid, query : PostQuery) : PagedResult<PostResponse>
+}
+class PostService {
+  -_postRepository : IPostRepository
+  -_groupRepository : IGroupRepository
+  +GetGroupFeedAsync(groupId : Guid, query : PostQuery) : PagedResult<PostResponse>
+  -GetActiveGroupAsync(groupId : Guid) : Group
+  -{static} Map(post : Post) : PostResponse
+}
+
+class GroupRepository {
+  +GetByIdAsync(id : Guid) : Group
+}
+class PostRepository {
+  +GetGroupFeedAsync(groupId : Guid, query : PostQuery) : PagedResult<Post>
+}
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +Posts : DbSet<Post>
+}
+
+class GroupResponse {
+  +Id : Guid
+  +Name : String
+  +OwnerId : String
+  +Members : GroupMemberResponse[]
+}
+class PostResponse {
+  +Id : Guid
+  +Content : String
+  +MediaUrl : String
+  +AuthorName : String
+}
+
+Web --> ApiClient
+Web ..> GroupDetailsViewModel
+ApiClient ..> GroupsController : GET /api/groups/{id}
+ApiClient ..> GroupPostsController : GET /api/groups/{id}/posts
+GroupsController --> IGroupService
+GroupPostsController --> IPostService
+GroupService ..|> IGroupService
+PostService ..|> IPostService
+GroupService --> GroupRepository
+PostService --> PostRepository
+PostService --> GroupRepository
+GroupRepository --> AppDbContext
+PostRepository --> AppDbContext
+GroupService ..> GroupResponse
+PostService ..> PostResponse
+@enduml

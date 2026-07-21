@@ -1,0 +1,99 @@
+@startuml class_group_create
+title Create Group - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.GroupsController" as Web {
+  -_api : ApiClient
+  +Create() : IActionResult
+  +Create(req : CreateGroupRequest,\n avatar : IFormFile) : IActionResult
+  -ApplyAvatarAsync(req : CreateGroupRequest,\n avatar : IFormFile) : Task
+}
+
+class ApiClient {
+  +CreateGroupAsync(req : CreateGroupRequest) : Guid
+  +UploadAsync(stream, fileName, contentType) : MediaUploadResult
+}
+
+class MediaController {
+  +Upload(file : IFormFile) : MediaUploadResult
+}
+
+class GroupsController {
+  -_service : IGroupService
+  +CurrentUserId : String
+  +Create(request : CreateGroupRequest) : IActionResult
+}
+
+interface IGroupService {
+  +CreateGroupAsync(req : CreateGroupRequest, userId : String) : Guid
+}
+class GroupService {
+  -_repo : IGroupRepository
+  +CreateGroupAsync(req : CreateGroupRequest, userId : String) : Guid
+  -{static} NormalizeUrl(value : String) : String
+}
+
+interface IGroupRepository {
+  +AddAsync(group : Group) : Task
+  +SaveChangesAsync() : Task
+}
+class GroupRepository {
+  -_context : AppDbContext
+  +AddAsync(group : Group) : Task
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +SaveChangesAsync() : int
+}
+
+class CreateGroupRequest {
+  +Name : String
+  +Description : String
+  +AvatarUrl : String
+}
+class Group {
+  +Id : Guid
+  +Name : String
+  +Description : String
+  +AvatarUrl : String
+  +OwnerId : String
+  +CreatedDate : DateTime
+  +IsDeleted : bool
+  +Members : ICollection<GroupMember>
+}
+class GroupMember {
+  +GroupId : Guid
+  +UserId : String
+  +Role : int
+  +JoinedDate : DateTime
+}
+enum GroupRole {
+  Member = 0
+  Admin = 1
+  Owner = 2
+}
+
+Web --> ApiClient
+ApiClient ..> GroupsController : POST /api/groups
+ApiClient ..> MediaController : POST /api/media
+GroupsController --> IGroupService
+GroupService ..|> IGroupService
+GroupService --> IGroupRepository
+GroupRepository ..|> IGroupRepository
+GroupRepository --> AppDbContext
+AppDbContext --> Group
+Group "1" o-- "many" GroupMember
+GroupMember ..> GroupRole
+GroupService ..> CreateGroupRequest
+GroupService ..> Group
+@enduml
