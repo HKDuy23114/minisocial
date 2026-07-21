@@ -1,0 +1,88 @@
+@startuml class_search
+title Search (Users / Groups / Posts) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.SearchController" as Web {
+  -_api : ApiClient
+  +Index(q : String) : IActionResult
+}
+class ApiClient {
+  +SearchAsync(q : String, limit : int) : SearchResponse
+}
+class SearchController {
+  -_searchService : ISearchService
+  +Search(query : String, limit : int) : ActionResult<SearchResponse>
+}
+
+interface ISearchService {
+  +SearchAsync(query : String, limit : int) : SearchResponse
+}
+class SearchService {
+  -_searchRepository : ISearchRepository
+  +SearchAsync(query : String, limit : int) : SearchResponse
+  -{static} MapUser(user : AppUser) : SearchUserResponse
+  -{static} MapGroup(group : Group) : SearchGroupResponse
+  -{static} MapPost(post : Post) : PostResponse
+}
+
+interface ISearchRepository {
+  +SearchAsync(query : String, limit : int) : SearchRepositoryResult
+}
+class SearchRepository {
+  -_context : AppDbContext
+  +SearchAsync(query : String, limit : int) : SearchRepositoryResult
+}
+class SearchRepositoryResult {
+  +UserTotal : int
+  +GroupTotal : int
+  +PostTotal : int
+  +Users : AppUser[]
+  +Groups : Group[]
+  +Posts : Post[]
+}
+class AppDbContext {
+  +Users : DbSet<AppUser>
+  +Groups : DbSet<Group>
+  +Posts : DbSet<Post>
+}
+
+class SearchResponse {
+  +Query : String
+  +UserTotal : int
+  +GroupTotal : int
+  +PostTotal : int
+  +Users : SearchUserResponse[]
+  +Groups : SearchGroupResponse[]
+  +Posts : PostResponse[]
+}
+class SearchUserResponse {
+  +Id : String
+  +DisplayName : String
+  +AvatarUrl : String
+}
+class SearchGroupResponse {
+  +Id : Guid
+  +Name : String
+  +MemberCount : int
+}
+
+Web --> ApiClient
+ApiClient ..> SearchController : GET /api/search?q
+SearchController --> ISearchService
+SearchService ..|> ISearchService
+SearchService --> ISearchRepository
+SearchRepository ..|> ISearchRepository
+SearchRepository --> AppDbContext
+SearchRepository ..> SearchRepositoryResult
+SearchService ..> SearchResponse
+SearchResponse *-- SearchUserResponse
+SearchResponse *-- SearchGroupResponse
+@enduml
