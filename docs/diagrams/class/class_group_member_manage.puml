@@ -1,88 +1,69 @@
 @startuml class_group_member_manage
-title Group Member Management (Owner: Kick / Change Role) - Class Diagram
 hide circle
 skinparam classAttributeIconSize 0
-skinparam packageStyle rectangle
 skinparam class {
   BackgroundColor white
   BorderColor black
   FontName "Arial"
   FontStyle bold
 }
-
-class "Web.GroupsController" as Web {
-  -_api : ApiClient
-  +Kick(id : Guid, userId : String) : IActionResult
-  +ChangeRole(id : Guid, userId : String, role : int) : IActionResult
-}
-
-class ApiClient {
-  +KickMemberAsync(id : Guid, userId : String) : void
-  +ChangeRoleAsync(id : Guid, userId : String, role : int) : void
-}
+title Class Diagram - Group Member Management (Owner: Kick / Change Role)
 
 class GroupsController {
   -_service : IGroupService
-  +CurrentUserId : String
-  +Kick(id : Guid, userId : String) : IActionResult
-  +ChangeRole(id : Guid, userId : String,\n request : ChangeRoleRequest) : IActionResult
+  +Kick(id : Guid, userId : string) : Task<IActionResult>
+  +ChangeRole(id : Guid, userId : string,\n request : ChangeRoleRequest) : Task<IActionResult>
 }
 
-interface IGroupService {
-  +KickMemberAsync(groupId : Guid, targetUserId : String, requesterId : String) : Task
-  +ChangeRoleAsync(groupId : Guid, targetUserId : String, role : int, requesterId : String) : Task
-}
 class GroupService {
   -_repo : IGroupRepository
-  +KickMemberAsync(groupId : Guid, targetUserId : String, requesterId : String) : Task
-  +ChangeRoleAsync(groupId : Guid, targetUserId : String, role : int, requesterId : String) : Task
-  -GetActiveGroupAsync(groupId : Guid) : Group
+  +KickMemberAsync(groupId : Guid,\n targetUserId : string, requesterId : string) : Task
+  +ChangeRoleAsync(groupId : Guid, targetUserId : string,\n role : int, requesterId : string) : Task
+  -GetActiveGroupAsync(groupId : Guid) : Task<Group>
 }
 
-interface IGroupRepository {
-  +GetByIdAsync(id : Guid) : Group
-  +SaveChangesAsync() : Task
-}
 class GroupRepository {
   -_context : AppDbContext
-  +GetByIdAsync(id : Guid) : Group
+  +GetByIdAsync(id : Guid) : Task<Group>
   +SaveChangesAsync() : Task
 }
 
 class AppDbContext {
   +Groups : DbSet<Group>
   +GroupMembers : DbSet<GroupMember>
+  +SaveChangesAsync() : Task<int>
 }
 
-class ChangeRoleRequest {
-  +Role : int
-}
 class Group {
-  +Id : Guid
-  +OwnerId : String
-  +Members : ICollection<GroupMember>
+  -Id : Guid
+  -OwnerId : String
+  -Members : ICollection<GroupMember>
 }
 class GroupMember {
-  +GroupId : Guid
-  +UserId : String
-  +Role : int
+  -GroupId : Guid
+  -UserId : String
+  -Role : int
 }
 enum GroupRole {
   Member = 0
   Admin = 1
   Owner = 2
 }
+class ChangeRoleRequest {
+  +Role : int
+}
 
-Web --> ApiClient
-ApiClient ..> GroupsController : DELETE /members/{userId} , PUT /members/{userId}/role
+GroupsController --> GroupService
 GroupsController ..> ChangeRoleRequest
-GroupsController --> IGroupService
-GroupService ..|> IGroupService
-GroupService --> IGroupRepository
-GroupRepository ..|> IGroupRepository
+GroupService --> GroupRepository
 GroupRepository --> AppDbContext
-AppDbContext --> Group
-Group "1" o-- "many" GroupMember
+GroupRepository --> Group
+Group "1" --> "*" GroupMember
 GroupMember ..> GroupRole
-GroupService ..> Group
+
+note bottom of GroupService
+  Only owner may kick / change role; owner cannot be kicked
+  nor have role changed; role must be a defined GroupRole
+  (Enum.IsDefined) else ArgumentException
+end note
 @enduml

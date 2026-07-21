@@ -1,96 +1,69 @@
 @startuml class_group_details
-title Group Detail (/group/{id}) + Group Feed - Class Diagram
 hide circle
 skinparam classAttributeIconSize 0
-skinparam packageStyle rectangle
 skinparam class {
   BackgroundColor white
   BorderColor black
   FontName "Arial"
   FontStyle bold
 }
-
-class "Web.GroupsController" as Web {
-  -_api : ApiClient
-  +Details(id : Guid) : IActionResult
-}
-class GroupDetailsViewModel {
-  +Group : GroupResponse
-  +IsOwner : bool
-  +IsMember : bool
-  +Feed : PagedResult<PostResponse>
-}
-
-class ApiClient {
-  +GetGroupAsync(id : Guid) : GroupResponse
-  +GetGroupFeedAsync(id : Guid, page, pageSize) : PagedResult<PostResponse>
-}
+title Class Diagram - Group Detail (/group/{id})
 
 class GroupsController {
   -_service : IGroupService
-  +GetById(id : Guid) : IActionResult
-}
-class GroupPostsController {
-  -_service : IPostService
-  +GetFeed(groupId : Guid, query : PostQuery) : IActionResult
+  +GetById(id : Guid) : Task<IActionResult>
 }
 
-interface IGroupService {
-  +GetByIdAsync(groupId : Guid) : GroupResponse
-}
 class GroupService {
   -_repo : IGroupRepository
-  +GetByIdAsync(groupId : Guid) : GroupResponse
+  +GetByIdAsync(groupId : Guid) : Task<GroupResponse>
   -{static} MapToResponse(g : Group) : GroupResponse
-}
-interface IPostService {
-  +GetGroupFeedAsync(groupId : Guid, query : PostQuery) : PagedResult<PostResponse>
-}
-class PostService {
-  -_postRepository : IPostRepository
-  -_groupRepository : IGroupRepository
-  +GetGroupFeedAsync(groupId : Guid, query : PostQuery) : PagedResult<PostResponse>
-  -GetActiveGroupAsync(groupId : Guid) : Group
-  -{static} Map(post : Post) : PostResponse
 }
 
 class GroupRepository {
-  +GetByIdAsync(id : Guid) : Group
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Task<Group>
 }
-class PostRepository {
-  +GetGroupFeedAsync(groupId : Guid, query : PostQuery) : PagedResult<Post>
-}
+
 class AppDbContext {
   +Groups : DbSet<Group>
-  +Posts : DbSet<Post>
+  +GroupMembers : DbSet<GroupMember>
+}
+
+class Group {
+  -Id : Guid
+  -Name : String
+  -Description : String
+  -OwnerId : String
+  -IsDeleted : bool
+  -Members : ICollection<GroupMember>
+}
+class GroupMember {
+  -GroupId : Guid
+  -UserId : String
+  -Role : int
+  -JoinedDate : DateTime
 }
 
 class GroupResponse {
   +Id : Guid
   +Name : String
+  +Description : String
   +OwnerId : String
+  +MemberCount : int
+  +CreatedDate : DateTime
   +Members : GroupMemberResponse[]
 }
-class PostResponse {
-  +Id : Guid
-  +Content : String
-  +MediaUrl : String
-  +AuthorName : String
-}
 
-Web --> ApiClient
-Web ..> GroupDetailsViewModel
-ApiClient ..> GroupsController : GET /api/groups/{id}
-ApiClient ..> GroupPostsController : GET /api/groups/{id}/posts
-GroupsController --> IGroupService
-GroupPostsController --> IPostService
-GroupService ..|> IGroupService
-PostService ..|> IPostService
+GroupsController --> GroupService
 GroupService --> GroupRepository
-PostService --> PostRepository
-PostService --> GroupRepository
 GroupRepository --> AppDbContext
-PostRepository --> AppDbContext
+GroupRepository --> Group
+Group "1" --> "*" GroupMember
 GroupService ..> GroupResponse
-PostService ..> PostResponse
+
+note bottom of GroupService
+  Returns null if group missing or IsDeleted -> 404;
+  includes Members (with user) for the detail view
+end note
 @enduml

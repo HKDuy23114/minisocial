@@ -1,83 +1,79 @@
 @startuml class_group_list
-title Groups List Page (/groups) - Class Diagram
 hide circle
 skinparam classAttributeIconSize 0
-skinparam packageStyle rectangle
 skinparam class {
   BackgroundColor white
   BorderColor black
   FontName "Arial"
   FontStyle bold
 }
-
-class "Web.GroupsController" as Web {
-  -_api : ApiClient
-  +Index() : IActionResult
-}
-class GroupsIndexViewModel {
-  +AllGroups : List<GroupResponse>
-  +MyGroups : List<GroupResponse>
-}
-
-class ApiClient {
-  +GetGroupsAsync() : List<GroupResponse>
-  +GetMyGroupsAsync() : List<GroupResponse>
-}
+title Class Diagram - Groups List (/groups) + Search
 
 class GroupsController {
   -_service : IGroupService
-  +CurrentUserId : String
-  +GetAll() : IActionResult
-  +Mine() : IActionResult
+  +GetAll() : Task<IActionResult>
+  +Search(query : GroupQuery) : Task<IActionResult>
 }
 
-interface IGroupService {
-  +GetAllAsync() : List<GroupResponse>
-  +GetJoinedAsync(userId : String) : List<GroupResponse>
-}
 class GroupService {
   -_repo : IGroupRepository
-  +GetAllAsync() : List<GroupResponse>
-  +GetJoinedAsync(userId : String) : List<GroupResponse>
+  +GetAllAsync() : Task<List<GroupResponse>>
+  +SearchAsync(query : GroupQuery) : Task<PagedResult<GroupResponse>>
   -{static} MapToResponse(g : Group) : GroupResponse
 }
 
-interface IGroupRepository {
-  +GetAllAsync() : List<Group>
-  +GetJoinedAsync(userId : String) : List<Group>
-}
 class GroupRepository {
   -_context : AppDbContext
-  +GetAllAsync() : List<Group>
-  +GetJoinedAsync(userId : String) : List<Group>
+  +GetAllAsync() : Task<List<Group>>
+  +SearchAsync(query : GroupQuery) : Task<PagedResult<Group>>
 }
 
 class AppDbContext {
   +Groups : DbSet<Group>
 }
 
+class Group {
+  -Id : Guid
+  -Name : String
+  -Description : String
+  -OwnerId : String
+  -IsDeleted : bool
+  -Members : ICollection<GroupMember>
+}
+
+class GroupQuery {
+  +Keyword : String
+  +OwnerId : String
+  +MinMembers : int?
+  +MaxMembers : int?
+  +Page : int
+  +PageSize : int
+}
 class GroupResponse {
   +Id : Guid
   +Name : String
-  +AvatarUrl : String
+  +Description : String
   +OwnerId : String
   +MemberCount : int
+  +CreatedDate : DateTime
 }
-class Group {
-  +Id : Guid
-  +Name : String
-  +IsDeleted : bool
-  +Members : ICollection<GroupMember>
+class "PagedResult<T>" as PagedResult {
+  +Items : List<T>
+  +Page : int
+  +PageSize : int
+  +Total : int
 }
 
-Web --> ApiClient
-Web ..> GroupsIndexViewModel
-ApiClient ..> GroupsController : GET /api/groups , /api/groups/mine
-GroupsController --> IGroupService
-GroupService ..|> IGroupService
-GroupService --> IGroupRepository
-GroupRepository ..|> IGroupRepository
+GroupsController --> GroupService
+GroupService --> GroupRepository
 GroupRepository --> AppDbContext
-AppDbContext --> Group
+GroupRepository --> Group
+GroupService ..> GroupQuery
 GroupService ..> GroupResponse
+GroupService ..> PagedResult
+
+note bottom of GroupRepository
+  Excludes IsDeleted; ordered by CreatedDate desc;
+  Search clamps Page>=1, PageSize 1..50, filters keyword/owner/members
+end note
 @enduml

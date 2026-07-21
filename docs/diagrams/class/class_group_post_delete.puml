@@ -1,4 +1,4 @@
-@startuml class_group_post_create
+@startuml class_group_post_delete
 hide circle
 skinparam classAttributeIconSize 0
 skinparam class {
@@ -7,30 +7,23 @@ skinparam class {
   FontName "Arial"
   FontStyle bold
 }
-title Class Diagram - Create Post in Group (Group Posts)
+title Class Diagram - Delete Group Post (soft delete)
 
 class GroupPostsController {
   -_service : IPostService
-  +Create(groupId : Guid,\n request : CreatePostRequest) : Task<IActionResult>
+  +Delete(groupId : Guid, postId : Guid) : Task<IActionResult>
 }
 
 class PostService {
   -_postRepo : IPostRepository
   -_groupRepo : IGroupRepository
-  -_contentFilter : IContentFilter
-  +CreateGroupPostAsync(groupId : Guid,\n req : CreatePostRequest, userId : string) : Task<Guid>
-  -ValidateContent(req : CreatePostRequest) : void
+  +DeleteGroupPostAsync(groupId : Guid,\n postId : Guid, userId : string) : Task
   -GetActiveGroupAsync(groupId : Guid) : Task<Group>
-  -{static} BuildPost(req : CreatePostRequest,\n userId : string, groupId : Guid) : Post
-}
-
-class ContentFilter {
-  +IsAllowed(content : String) : bool
 }
 
 class PostRepository {
   -_context : AppDbContext
-  +AddAsync(post : Post) : Task
+  +GetByIdAsync(id : Guid) : Task<Post>
   +SaveChangesAsync() : Task
 }
 class GroupRepository {
@@ -47,36 +40,24 @@ class Post {
   -Id : Guid
   -UserId : String
   -GroupId : Guid?
-  -Content : String
-  -MediaUrl : String
-  -MediaType : int
-  -CreatedDate : DateTime
   -IsDeleted : bool
 }
 class Group {
   -Id : Guid
+  -OwnerId : String
   -IsDeleted : bool
-  -Members : ICollection<GroupMember>
-}
-class CreatePostRequest {
-  +Content : String
-  +MediaUrl : String
-  +MediaType : int
 }
 
 GroupPostsController --> PostService
 PostService --> PostRepository
 PostService --> GroupRepository
-PostService --> ContentFilter
 PostRepository --> AppDbContext
 GroupRepository --> AppDbContext
 PostRepository --> Post
 GroupRepository --> Group
-PostService ..> CreatePostRequest
 
 note bottom of PostService
-  Validate: content or media required; Content length <= 5000;
-  ContentFilter.IsAllowed; group active (KeyNotFound);
-  user must be a group member (UnauthorizedAccessException)
+  Allowed only to the post author or the group owner
+  (UnauthorizedAccessException otherwise); sets IsDeleted = true
 end note
 @enduml

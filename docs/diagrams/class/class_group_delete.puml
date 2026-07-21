@@ -1,67 +1,50 @@
 @startuml class_group_delete
-title Delete Group (soft delete) - Class Diagram
 hide circle
 skinparam classAttributeIconSize 0
-skinparam packageStyle rectangle
 skinparam class {
   BackgroundColor white
   BorderColor black
   FontName "Arial"
   FontStyle bold
 }
-
-class "Web.GroupsController" as Web {
-  -_api : ApiClient
-  +Delete(id : Guid) : IActionResult
-}
-
-class ApiClient {
-  +DeleteGroupAsync(id : Guid) : void
-}
+title Class Diagram - Delete Group (soft delete)
 
 class GroupsController {
   -_service : IGroupService
-  +CurrentUserId : String
-  +Delete(id : Guid) : IActionResult
+  +Delete(id : Guid) : Task<IActionResult>
 }
 
-interface IGroupService {
-  +DeleteGroupAsync(groupId : Guid, userId : String) : Task
-}
 class GroupService {
   -_repo : IGroupRepository
-  +DeleteGroupAsync(groupId : Guid, userId : String) : Task
-  -GetActiveGroupAsync(groupId : Guid) : Group
+  +DeleteGroupAsync(groupId : Guid, userId : string) : Task
+  -GetActiveGroupAsync(groupId : Guid) : Task<Group>
 }
 
-interface IGroupRepository {
-  +GetByIdAsync(id : Guid) : Group
-  +SaveChangesAsync() : Task
-}
 class GroupRepository {
   -_context : AppDbContext
-  +GetByIdAsync(id : Guid) : Group
+  +GetByIdAsync(id : Guid) : Task<Group>
   +SaveChangesAsync() : Task
 }
 
 class AppDbContext {
   +Groups : DbSet<Group>
-  +SaveChangesAsync() : int
+  +SaveChangesAsync() : Task<int>
 }
 
 class Group {
-  +Id : Guid
-  +OwnerId : String
-  +IsDeleted : bool
+  -Id : Guid
+  -OwnerId : String
+  -IsDeleted : bool
 }
 
-Web --> ApiClient
-ApiClient ..> GroupsController : DELETE /api/groups/{id}
-GroupsController --> IGroupService
-GroupService ..|> IGroupService
-GroupService --> IGroupRepository
-GroupRepository ..|> IGroupRepository
+GroupsController --> GroupService
+GroupService --> GroupRepository
 GroupRepository --> AppDbContext
-AppDbContext --> Group
-GroupService ..> Group
+GroupRepository --> Group
+
+note bottom of GroupService
+  Validate: group exists & not deleted (KeyNotFound);
+  only OwnerId == userId may delete (UnauthorizedAccessException);
+  sets IsDeleted = true (soft delete)
+end note
 @enduml

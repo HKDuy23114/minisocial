@@ -29,9 +29,11 @@ feature), pairing 1-to-1 with the sequence diagrams below.
 | `class_group_edit.puml` | Sửa nhóm (Owner) |
 | `class_group_delete.puml` | Xoá nhóm (Owner, soft delete) |
 | `class_group_list.puml` | Trang danh sách nhóm `/groups` |
-| `class_group_details.puml` | Chi tiết nhóm `/group/{id}` + feed |
+| `class_group_details.puml` | Chi tiết nhóm `/group/{id}` |
 | `class_group_join_leave.puml` | Join / Leave nhóm |
 | `class_group_post_create.puml` | Đăng bài trong nhóm (Group Posts) |
+| `class_group_feed.puml` | Hiển thị feed bài viết trong nhóm |
+| `class_group_post_delete.puml` | Xoá bài trong nhóm (author/owner) |
 | `class_group_member_manage.puml` | Quản lý thành viên (kick / đổi role) |
 | `class_search.puml` | Search Group / Người dùng / Bài viết |
 | `class_admin_dashboard.puml` | Trang Admin `/admin` — layout dashboard |
