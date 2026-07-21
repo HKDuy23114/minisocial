@@ -1,0 +1,61 @@
+@startuml class_group_join_leave
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Join / Leave Group
+
+class GroupsController {
+  -_service : IGroupService
+  +Join(id : Guid) : Task<IActionResult>
+  +Leave(id : Guid) : Task<IActionResult>
+}
+
+class GroupService {
+  -_repo : IGroupRepository
+  +JoinGroupAsync(groupId : Guid, userId : string) : Task
+  +LeaveGroupAsync(groupId : Guid, userId : string) : Task
+  -GetActiveGroupAsync(groupId : Guid) : Task<Group>
+}
+
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Task<Group>
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +GroupMembers : DbSet<GroupMember>
+  +SaveChangesAsync() : Task<int>
+}
+
+class Group {
+  -Id : Guid
+  -OwnerId : String
+  -IsDeleted : bool
+  -Members : ICollection<GroupMember>
+}
+class GroupMember {
+  -GroupId : Guid
+  -UserId : String
+  -Role : int
+  -JoinedDate : DateTime
+}
+
+GroupsController --> GroupService
+GroupService --> GroupRepository
+GroupRepository --> AppDbContext
+GroupRepository --> Group
+Group "1" --> "*" GroupMember
+
+note bottom of GroupService
+  Join: group active (KeyNotFound); not already a member
+  (InvalidOperationException); adds GroupMember(Role=Member).
+  Leave: owner cannot leave; must be a member (InvalidOperationException)
+end note
+@enduml

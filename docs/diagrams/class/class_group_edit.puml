@@ -1,0 +1,60 @@
+@startuml class_group_edit
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Edit Group
+
+class GroupsController {
+  -_service : IGroupService
+  +Update(id : Guid,\n request : CreateGroupRequest) : Task<IActionResult>
+}
+
+class GroupService {
+  -_repo : IGroupRepository
+  +UpdateGroupAsync(groupId : Guid,\n req : CreateGroupRequest, userId : string) : Task
+  -GetActiveGroupAsync(groupId : Guid) : Task<Group>
+  -{static} NormalizeUrl(value : String) : String
+}
+
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Task<Group>
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +SaveChangesAsync() : Task<int>
+}
+
+class Group {
+  -Id : Guid
+  -Name : String
+  -Description : String
+  -AvatarUrl : String
+  -OwnerId : String
+  -IsDeleted : bool
+}
+
+class CreateGroupRequest {
+  +Name : String
+  +Description : String
+  +AvatarUrl : String
+}
+
+GroupsController --> GroupService
+GroupService --> GroupRepository
+GroupRepository --> AppDbContext
+GroupRepository --> Group
+GroupService ..> CreateGroupRequest
+
+note bottom of GroupService
+  Validate: Name required; group exists & not deleted (KeyNotFound);
+  only OwnerId == userId may edit (UnauthorizedAccessException)
+end note
+@enduml

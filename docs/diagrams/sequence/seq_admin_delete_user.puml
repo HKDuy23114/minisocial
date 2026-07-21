@@ -1,0 +1,67 @@
+@startuml seq_admin_delete_user
+title Admin - Manage Users: Delete User (soft delete, full BE validation)
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor Admin
+participant ":Index.cshtml" as View
+participant ":Web.AdminController" as Web
+participant ":ApiClient" as Api
+participant ":AdminController" as Ctrl
+participant ":AdminService" as Svc
+participant ":AdminRepository" as Repo
+database "SQL Server" as DB
+
+Admin -> View : (1) Click "Delete" on a user (confirm)
+activate Admin
+activate View
+View -> Web : (2) POST /Admin/DeleteUser (id, keyword)
+activate Web
+note over Ctrl : [Authorize(Roles = "Admin")]
+Web -> Api : (3) DeleteUserAsync(id)
+activate Api
+Api -> Ctrl : (4) DELETE /api/admin/users/{userId} (JWT, Admin)
+activate Ctrl
+Ctrl -> Svc : (5) DeleteUserAsync(userId)
+activate Svc
+Svc -> Repo : (6) GetUserByIdAsync(userId)
+activate Repo
+Repo -> DB : (7) SELECT AppUser WHERE Id=userId
+DB --> Repo : (8) row
+Repo --> Svc : (8.1) AppUser
+deactivate Repo
+Svc -> Svc : (9) if null or IsDeleted -> KeyNotFoundException
+alt User not found
+    Svc --> Ctrl : (9.1) throw KeyNotFound
+    Ctrl --> Api : (9.2) 404 Not Found
+    Api --> Web : (9.3) ApiException -> TempData["Error"]
+else Found
+    Svc -> Svc : (10) user.IsDeleted = true
+    Svc -> Repo : (11) SaveChangesAsync()
+    activate Repo
+    Repo -> DB : (12) UPDATE AspNetUsers SET IsDeleted = 1
+    DB --> Repo : (13) rows affected
+    Repo --> Svc : (13.1) ok
+    deactivate Repo
+    Svc --> Ctrl : (14) done
+    Ctrl --> Api : (15) 204 No Content
+    Api --> Web : (16) ok -> TempData["Info"]="User deleted."
+end
+deactivate Svc
+deactivate Ctrl
+deactivate Api
+Web --> View : (17) Redirect to /Admin (keyword preserved)
+View --> Admin : (18) User no longer listed
+deactivate Web
+deactivate View
+deactivate Admin
+@enduml

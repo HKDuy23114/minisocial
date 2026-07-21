@@ -1,0 +1,82 @@
+@startuml class_group_post_create
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Create Post in Group (Group Posts)
+
+class GroupPostsController {
+  -_service : IPostService
+  +Create(groupId : Guid,\n request : CreatePostRequest) : Task<IActionResult>
+}
+
+class PostService {
+  -_postRepo : IPostRepository
+  -_groupRepo : IGroupRepository
+  -_contentFilter : IContentFilter
+  +CreateGroupPostAsync(groupId : Guid,\n req : CreatePostRequest, userId : string) : Task<Guid>
+  -ValidateContent(req : CreatePostRequest) : void
+  -GetActiveGroupAsync(groupId : Guid) : Task<Group>
+  -{static} BuildPost(req : CreatePostRequest,\n userId : string, groupId : Guid) : Post
+}
+
+class ContentFilter {
+  +IsAllowed(content : String) : bool
+}
+
+class PostRepository {
+  -_context : AppDbContext
+  +AddAsync(post : Post) : Task
+  +SaveChangesAsync() : Task
+}
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Task<Group>
+}
+class AppDbContext {
+  +Posts : DbSet<Post>
+  +Groups : DbSet<Group>
+  +SaveChangesAsync() : Task<int>
+}
+
+class Post {
+  -Id : Guid
+  -UserId : String
+  -GroupId : Guid?
+  -Content : String
+  -MediaUrl : String
+  -MediaType : int
+  -CreatedDate : DateTime
+  -IsDeleted : bool
+}
+class Group {
+  -Id : Guid
+  -IsDeleted : bool
+  -Members : ICollection<GroupMember>
+}
+class CreatePostRequest {
+  +Content : String
+  +MediaUrl : String
+  +MediaType : int
+}
+
+GroupPostsController --> PostService
+PostService --> PostRepository
+PostService --> GroupRepository
+PostService --> ContentFilter
+PostRepository --> AppDbContext
+GroupRepository --> AppDbContext
+PostRepository --> Post
+GroupRepository --> Group
+PostService ..> CreatePostRequest
+
+note bottom of PostService
+  Validate: content or media required; Content length <= 5000;
+  ContentFilter.IsAllowed; group active (KeyNotFound);
+  user must be a group member (UnauthorizedAccessException)
+end note
+@enduml

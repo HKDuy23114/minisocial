@@ -1,0 +1,69 @@
+@startuml class_group_details
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Group Detail (/group/{id})
+
+class GroupsController {
+  -_service : IGroupService
+  +GetById(id : Guid) : Task<IActionResult>
+}
+
+class GroupService {
+  -_repo : IGroupRepository
+  +GetByIdAsync(groupId : Guid) : Task<GroupResponse>
+  -{static} MapToResponse(g : Group) : GroupResponse
+}
+
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Task<Group>
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +GroupMembers : DbSet<GroupMember>
+}
+
+class Group {
+  -Id : Guid
+  -Name : String
+  -Description : String
+  -OwnerId : String
+  -IsDeleted : bool
+  -Members : ICollection<GroupMember>
+}
+class GroupMember {
+  -GroupId : Guid
+  -UserId : String
+  -Role : int
+  -JoinedDate : DateTime
+}
+
+class GroupResponse {
+  +Id : Guid
+  +Name : String
+  +Description : String
+  +OwnerId : String
+  +MemberCount : int
+  +CreatedDate : DateTime
+  +Members : GroupMemberResponse[]
+}
+
+GroupsController --> GroupService
+GroupService --> GroupRepository
+GroupRepository --> AppDbContext
+GroupRepository --> Group
+Group "1" --> "*" GroupMember
+GroupService ..> GroupResponse
+
+note bottom of GroupService
+  Returns null if group missing or IsDeleted -> 404;
+  includes Members (with user) for the detail view
+end note
+@enduml

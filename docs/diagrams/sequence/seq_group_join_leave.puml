@@ -1,0 +1,96 @@
+@startuml seq_group_join_leave
+title Join / Leave Group (full BE validation)
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor User
+participant ":Details.cshtml" as View
+participant ":Web.GroupsController" as Web
+participant ":ApiClient" as Api
+participant ":GroupsController" as Ctrl
+participant ":GroupService" as Svc
+participant ":GroupRepository" as Repo
+database "SQL Server" as DB
+
+group JOIN
+    User -> View : (1) Click "Join"
+    activate User
+    View -> Web : (2) POST /Groups/Join/{id}
+    activate Web
+    Web -> Api : (3) JoinGroupAsync(id)
+    Api -> Ctrl : (4) POST /api/groups/{id}/join (JWT)
+    activate Ctrl
+    Ctrl -> Svc : (5) JoinGroupAsync(id, userId)
+    activate Svc
+    Svc -> Repo : (6) GetByIdAsync(id) -> GetActiveGroupAsync
+    Repo -> DB : (7) SELECT group + members
+    DB --> Repo : (7.1) row
+    Repo --> Svc : (7.2) Group (else KeyNotFound)
+    Svc -> Svc : (8) if Members.Any(userId) -> InvalidOperationException("Already joined")
+    alt Already joined / not found
+        Svc --> Ctrl : (8.1) throw
+        Ctrl --> Api : (8.2) 400 / 404
+        Api --> Web : (8.3) ApiException -> TempData["Error"]
+    else OK
+        Svc -> Svc : (9) Members.Add(new GroupMember Role=Member)
+        Svc -> Repo : (10) SaveChangesAsync()
+        Repo -> DB : (11) INSERT GroupMembers
+        DB --> Repo : (11.1) ok
+        Repo --> Svc : (11.2) ok
+        Svc --> Ctrl : (12) done
+    end
+    deactivate Svc
+    Ctrl --> Api : (13) 204 / error
+    deactivate Ctrl
+    Api --> Web : (14) result
+    Web --> View : (15) Redirect to Details/{id}
+    deactivate Web
+    View --> User : (16) Now shows "Leave"
+end
+
+group LEAVE
+    User -> View : (17) Click "Leave"
+    View -> Web : (18) POST /Groups/Leave/{id}
+    activate Web
+    Web -> Api : (19) LeaveGroupAsync(id)
+    Api -> Ctrl : (20) POST /api/groups/{id}/leave (JWT)
+    activate Ctrl
+    Ctrl -> Svc : (21) LeaveGroupAsync(id, userId)
+    activate Svc
+    Svc -> Repo : (22) GetActiveGroupAsync(id)
+    Repo -> DB : (23) SELECT group + members
+    DB --> Repo : (23.1) row
+    Repo --> Svc : (23.2) Group
+    Svc -> Svc : (24) if OwnerId == userId -> InvalidOperationException("Owner cannot leave")
+    Svc -> Svc : (25) member = Members.First(userId); if null -> InvalidOperationException("Not a member")
+    alt Owner / not a member
+        Svc --> Ctrl : (25.1) throw
+        Ctrl --> Api : (25.2) 400
+        Api --> Web : (25.3) ApiException -> TempData["Error"]
+    else OK
+        Svc -> Svc : (26) Members.Remove(member)
+        Svc -> Repo : (27) SaveChangesAsync()
+        Repo -> DB : (28) DELETE GroupMembers
+        DB --> Repo : (28.1) ok
+        Repo --> Svc : (28.2) ok
+        Svc --> Ctrl : (29) done
+    end
+    deactivate Svc
+    Ctrl --> Api : (30) 204 / error
+    deactivate Ctrl
+    Api --> Web : (31) result
+    Web --> View : (32) Redirect to Details/{id}
+    deactivate Web
+    View --> User : (33) Now shows "Join"
+end
+deactivate User
+@enduml

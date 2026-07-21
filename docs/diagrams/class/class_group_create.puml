@@ -1,0 +1,70 @@
+@startuml class_group_create
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Create Group
+
+class GroupsController {
+  -_service : IGroupService
+  +Create(request : CreateGroupRequest) : Task<IActionResult>
+}
+
+class GroupService {
+  -_repo : IGroupRepository
+  +CreateGroupAsync(req : CreateGroupRequest,\n userId : string) : Task<Guid>
+  -{static} NormalizeUrl(value : String) : String
+}
+
+class GroupRepository {
+  -_context : AppDbContext
+  +AddAsync(group : Group) : Task
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +GroupMembers : DbSet<GroupMember>
+  +SaveChangesAsync() : Task<int>
+}
+
+class Group {
+  -Id : Guid
+  -Name : String
+  -Description : String
+  -AvatarUrl : String
+  -OwnerId : String
+  -CreatedDate : DateTime
+  -IsDeleted : bool
+  -Members : ICollection<GroupMember>
+}
+
+class GroupMember {
+  -GroupId : Guid
+  -UserId : String
+  -Role : int
+  -JoinedDate : DateTime
+}
+
+class CreateGroupRequest {
+  +Name : String
+  +Description : String
+  +AvatarUrl : String
+}
+
+GroupsController --> GroupService
+GroupService --> GroupRepository
+GroupRepository --> AppDbContext
+GroupRepository --> Group
+Group "1" --> "*" GroupMember
+GroupService ..> CreateGroupRequest
+
+note bottom of GroupService
+  Validate: Name required (ArgumentException); Name trimmed;
+  AvatarUrl normalized; creator added as GroupMember(Role=Owner)
+end note
+@enduml

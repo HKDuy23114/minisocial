@@ -1,0 +1,46 @@
+@startuml class_theme
+title Dark / Light Theme (CSS variables + toggle + localStorage) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class User <<Actor>>
+
+class "_Layout.cshtml" as Layout {
+  +themeToggleButton : UI component
+}
+
+class "site.js" as SiteJs {
+  +initTheme() : void
+  +toggleTheme() : void
+}
+
+class "html (documentElement)" as Html {
+  +getAttribute(name : String) : String
+  +setAttribute("data-theme", value : String) : void
+  +removeAttribute("data-theme") : void
+}
+
+class "localStorage" as LS {
+  +getItem("theme") : String
+  +setItem("theme", value : String) : void
+}
+
+class "site.css" as Css {
+  +:root { --bg, --text, --card, ... }
+  +[data-theme=dark] { override vars }
+}
+
+User --> Layout : click theme toggle
+Layout --> SiteJs : onclick toggleTheme()
+SiteJs --> Html : set/remove data-theme
+SiteJs --> LS : persist "theme"
+Html --> Css : selects active CSS variables
+note bottom of SiteJs : initTheme() reads localStorage("theme")\non load and re-applies data-theme
+@enduml

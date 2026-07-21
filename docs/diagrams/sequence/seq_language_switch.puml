@@ -1,0 +1,50 @@
+@startuml seq_language_switch
+title Localization VI / EN - Language Switcher (cookie-driven)
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor User
+participant "Browser" as Browser
+participant ":LangController" as Lang
+participant ":Loc (static)" as Loc
+participant ":Target Controller\n+ Razor View" as Page
+
+User -> Browser : (1) Click VI / EN link (in _Layout switcher)
+activate User
+activate Browser
+note over Browser : link = /Lang/Set?culture=en&returnUrl={current path}
+
+Browser -> Lang : (2) GET /Lang/Set?culture=en&returnUrl=...
+activate Lang
+Lang -> Lang : (3) value = (culture == "en") ? "en" : "vi"
+Lang -> Browser : (4) Set-Cookie "lang"=value (1 year, IsEssential)
+Lang -> Lang : (5) if Url.IsLocalUrl(returnUrl) -> Redirect(returnUrl) else Home/Index
+Lang --> Browser : (6) 302 Redirect -> returnUrl
+deactivate Lang
+
+Browser -> Page : (7) GET returnUrl (Cookie: lang=en)
+activate Page
+Page -> Loc : (8) Loc.Current(ctx) -> reads cookie
+Loc --> Page : (9) "en"
+Page -> Page : (10) render <html lang="en">
+loop for each UI label
+    Page -> Loc : (11) @Context.L(key) -> Loc.T(ctx, key)
+    Loc -> Loc : (12) Map[key] -> (Vi, En); pick En
+    Loc --> Page : (13) localized string
+end
+Page --> Browser : (14) HTML rendered in selected language
+deactivate Page
+note over Browser : site.js reads documentElement.lang\n-> dynamic JS strings also localized
+Browser --> User : (15) Page shown in EN (persists via cookie)
+deactivate Browser
+deactivate User
+@enduml

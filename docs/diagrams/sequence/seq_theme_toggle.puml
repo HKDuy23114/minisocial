@@ -1,0 +1,52 @@
+@startuml seq_theme_toggle
+title Dark / Light Theme Toggle (CSS variables + localStorage)
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor User
+participant ":site.js" as JS
+participant "html (documentElement)" as DOM
+participant "localStorage" as LS
+participant "site.css (:root / [data-theme=dark])" as CSS
+
+group ON PAGE LOAD
+    JS -> LS : (1) getItem("theme")
+    activate JS
+    LS --> JS : (2) savedTheme ("dark" | null)
+    opt savedTheme set
+        JS -> DOM : (3) setAttribute("data-theme", savedTheme)
+        DOM -> CSS : (4) resolve CSS variables for theme
+        CSS --> DOM : (5) apply colors
+    end
+    deactivate JS
+end
+
+group ON TOGGLE CLICK
+    User -> JS : (6) click #themeToggle
+    activate User
+    activate JS
+    JS -> DOM : (7) read current data-theme
+    DOM --> JS : (8) "dark" or ""
+    JS -> JS : (9) cur = (current == "dark") ? "" : "dark"
+    alt cur == "dark"
+        JS -> DOM : (10) setAttribute("data-theme", "dark")
+    else cur == ""
+        JS -> DOM : (10') removeAttribute("data-theme")  (light)
+    end
+    DOM -> CSS : (11) re-resolve CSS variables
+    CSS --> DOM : (12) repaint UI instantly
+    JS -> LS : (13) setItem("theme", cur)
+    deactivate JS
+    JS --> User : (14) Theme switched (persists next visit)
+    deactivate User
+end
+@enduml

@@ -1,0 +1,73 @@
+@startuml seq_group_delete
+title Delete Group (Owner only, soft delete - full BE validation)
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor Owner
+participant ":Details.cshtml" as View
+participant ":Web.GroupsController" as Web
+participant ":ApiClient" as Api
+participant ":GroupsController" as Ctrl
+participant ":GroupService" as Svc
+participant ":GroupRepository" as Repo
+participant ":AppDbContext" as Ctx
+database "SQL Server" as DB
+
+Owner -> View : (1) Click "Delete group" (confirm)
+activate Owner
+activate View
+View -> Web : (2) POST /Groups/Delete/{id} (anti-forgery)
+activate Web
+Web -> Api : (3) DeleteGroupAsync(id)
+activate Api
+Api -> Ctrl : (4) DELETE /api/groups/{id} (JWT)
+activate Ctrl
+Ctrl -> Svc : (5) DeleteGroupAsync(id, userId)
+activate Svc
+Svc -> Repo : (6) GetByIdAsync(id) -> GetActiveGroupAsync
+activate Repo
+Repo -> Ctx : (7) SELECT Group
+Ctx -> DB : (8) query
+DB --> Ctx : (9) row
+Ctx --> Repo : (9.1) Group
+Repo --> Svc : (9.2) Group
+deactivate Repo
+Svc -> Svc : (10) Guard: exists (KeyNotFound) & OwnerId == userId (Unauthorized)
+alt Not found / not owner
+    Svc --> Ctrl : (10.1) throw
+    Ctrl --> Api : (10.2) 403 / 404
+    Api --> Web : (10.3) ApiException
+    Web --> View : (10.4) TempData["Error"]
+    View --> Owner : (10.5) Show error
+else Authorized
+    Svc -> Svc : (11) group.IsDeleted = true
+    Svc -> Repo : (12) SaveChangesAsync()
+    activate Repo
+    Repo -> Ctx : (13) SaveChangesAsync()
+    Ctx -> DB : (14) UPDATE Groups SET IsDeleted = 1
+    DB --> Ctx : (15) rows affected
+    Ctx --> Repo : (15.1) ok
+    Repo --> Svc : (15.2) ok
+    deactivate Repo
+    Svc --> Ctrl : (16) done
+    deactivate Svc
+    Ctrl --> Api : (17) 204 No Content
+    deactivate Ctrl
+    Api --> Web : (18) ok
+    deactivate Api
+    Web --> View : (19) Redirect to Groups index
+    View --> Owner : (20) Group removed from list
+end
+deactivate Web
+deactivate View
+deactivate Owner
+@enduml

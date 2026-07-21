@@ -1,0 +1,83 @@
+@startuml class_group_feed
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Group Feed (display posts in group)
+
+class GroupPostsController {
+  -_service : IPostService
+  +GetFeed(groupId : Guid,\n query : PostQuery) : Task<IActionResult>
+}
+
+class PostService {
+  -_postRepo : IPostRepository
+  -_groupRepo : IGroupRepository
+  +GetGroupFeedAsync(groupId : Guid,\n query : PostQuery) : Task<PagedResult<PostResponse>>
+  -GetActiveGroupAsync(groupId : Guid) : Task<Group>
+  -{static} Map(post : Post) : PostResponse
+}
+
+class PostRepository {
+  -_context : AppDbContext
+  +GetGroupFeedAsync(groupId : Guid,\n query : PostQuery) : Task<PagedResult<Post>>
+}
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Task<Group>
+}
+class AppDbContext {
+  +Posts : DbSet<Post>
+  +Groups : DbSet<Group>
+}
+
+class Post {
+  -Id : Guid
+  -GroupId : Guid?
+  -Content : String
+  -MediaUrl : String
+  -CreatedDate : DateTime
+  -IsDeleted : bool
+}
+
+class PostQuery {
+  +Page : int
+  +PageSize : int
+}
+class PostResponse {
+  +Id : Guid
+  +GroupId : Guid?
+  +UserId : String
+  +Content : String
+  +MediaUrl : String
+  +MediaType : int
+  +CreatedDate : DateTime
+  +CommentCount : int
+  +ReactionCount : int
+}
+class "PagedResult<T>" as PagedResult {
+  +Items : List<T>
+  +Page : int
+  +PageSize : int
+  +Total : int
+}
+
+GroupPostsController --> PostService
+PostService --> PostRepository
+PostService --> GroupRepository
+PostRepository --> AppDbContext
+GroupRepository --> AppDbContext
+PostRepository --> Post
+PostService ..> PostQuery
+PostService ..> PostResponse
+PostService ..> PagedResult
+
+note bottom of PostService
+  Verifies group exists & not deleted (KeyNotFound);
+  excludes IsDeleted posts; ordered by CreatedDate desc; paginated
+end note
+@enduml

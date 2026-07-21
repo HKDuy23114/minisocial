@@ -1,0 +1,71 @@
+@startuml seq_group_list
+title Groups List Page (/groups) - All groups + My groups
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor User
+participant ":Index.cshtml" as View
+participant ":Web.GroupsController" as Web
+participant ":ApiClient" as Api
+participant ":GroupsController" as Ctrl
+participant ":GroupService" as Svc
+participant ":GroupRepository" as Repo
+participant ":AppDbContext" as Ctx
+database "SQL Server" as DB
+
+User -> Web : (1) GET /Groups
+activate User
+activate Web
+
+Web -> Api : (2) GetGroupsAsync()
+activate Api
+Api -> Ctrl : (3) GET /api/groups
+activate Ctrl
+Ctrl -> Svc : (4) GetAllAsync()
+activate Svc
+Svc -> Repo : (5) GetAllAsync()
+activate Repo
+Repo -> Ctx : (6) Groups.Where(!IsDeleted).Include(Members.User)
+Ctx -> DB : (7) SELECT groups + members
+DB --> Ctx : (8) rows
+Ctx --> Repo : (8.1) List<Group>
+deactivate Repo
+Repo --> Svc : (8.2) List<Group>
+Svc -> Svc : (9) Map -> List<GroupResponse>
+Svc --> Ctrl : (10) List<GroupResponse>
+deactivate Svc
+Ctrl --> Api : (11) 200 OK
+deactivate Ctrl
+Api --> Web : (12) AllGroups
+deactivate Api
+
+opt (13) User is authenticated
+    Web -> Api : (13.1) GetMyGroupsAsync()
+    Api -> Ctrl : (13.2) GET /api/groups/mine (JWT)
+    Ctrl -> Svc : (13.3) GetJoinedAsync(userId)
+    Svc -> Repo : (13.4) GetJoinedAsync(userId)
+    Repo -> Ctx : (13.5) Groups.Where(Members.Any(userId))
+    Ctx -> DB : (13.6) SELECT joined groups
+    DB --> Ctx : (13.7) rows
+    Ctx --> Repo : (13.8) List<Group>
+    Repo --> Svc : (13.9) List<Group>
+    Svc --> Ctrl : (13.10) List<GroupResponse>
+    Ctrl --> Api : (13.11) 200 OK
+    Api --> Web : (13.12) MyGroups
+end
+
+note over Web : try/catch ApiException -> empty list if API down
+Web --> View : (14) Render GroupsIndexViewModel(AllGroups, MyGroups)
+View --> User : (15) Show "My groups" + "Discover groups"
+deactivate Web
+deactivate User
+@enduml

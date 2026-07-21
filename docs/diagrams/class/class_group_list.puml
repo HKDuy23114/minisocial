@@ -1,0 +1,79 @@
+@startuml class_group_list
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Groups List (/groups) + Search
+
+class GroupsController {
+  -_service : IGroupService
+  +GetAll() : Task<IActionResult>
+  +Search(query : GroupQuery) : Task<IActionResult>
+}
+
+class GroupService {
+  -_repo : IGroupRepository
+  +GetAllAsync() : Task<List<GroupResponse>>
+  +SearchAsync(query : GroupQuery) : Task<PagedResult<GroupResponse>>
+  -{static} MapToResponse(g : Group) : GroupResponse
+}
+
+class GroupRepository {
+  -_context : AppDbContext
+  +GetAllAsync() : Task<List<Group>>
+  +SearchAsync(query : GroupQuery) : Task<PagedResult<Group>>
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+}
+
+class Group {
+  -Id : Guid
+  -Name : String
+  -Description : String
+  -OwnerId : String
+  -IsDeleted : bool
+  -Members : ICollection<GroupMember>
+}
+
+class GroupQuery {
+  +Keyword : String
+  +OwnerId : String
+  +MinMembers : int?
+  +MaxMembers : int?
+  +Page : int
+  +PageSize : int
+}
+class GroupResponse {
+  +Id : Guid
+  +Name : String
+  +Description : String
+  +OwnerId : String
+  +MemberCount : int
+  +CreatedDate : DateTime
+}
+class "PagedResult<T>" as PagedResult {
+  +Items : List<T>
+  +Page : int
+  +PageSize : int
+  +Total : int
+}
+
+GroupsController --> GroupService
+GroupService --> GroupRepository
+GroupRepository --> AppDbContext
+GroupRepository --> Group
+GroupService ..> GroupQuery
+GroupService ..> GroupResponse
+GroupService ..> PagedResult
+
+note bottom of GroupRepository
+  Excludes IsDeleted; ordered by CreatedDate desc;
+  Search clamps Page>=1, PageSize 1..50, filters keyword/owner/members
+end note
+@enduml

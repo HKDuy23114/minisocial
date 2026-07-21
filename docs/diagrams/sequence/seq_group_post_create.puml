@@ -1,0 +1,90 @@
+@startuml seq_group_post_create
+title Create Post in Group (Group Posts, full BE validation)
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor Member
+participant ":Details.cshtml" as View
+participant ":Web.PostsController" as Web
+participant ":ApiClient" as Api
+participant ":MediaController" as Media
+participant ":PostsController" as Ctrl
+participant ":PostService" as Svc
+participant ":IContentFilter" as Filter
+participant ":GroupRepository" as GRepo
+participant ":PostRepository" as PRepo
+database "SQL Server" as DB
+
+Member -> View : (1) Write content + optionally attach media, submit (groupId set)
+activate Member
+activate View
+View -> Web : (2) POST /Posts/Create (content, groupId, media)
+activate Web
+Web -> Web : (3) if content empty AND no media -> TempData["Error"], back
+alt Nothing to post
+    Web --> View : (3.1) Redirect back with error
+    View --> Member : (3.2) "Write something or attach media"
+else Has content or media
+    opt (4) media file selected
+        Web -> Api : (4.1) UploadAsync(stream, fileName, contentType)
+        Api -> Media : (4.2) POST /api/media
+        Media -> Media : (4.3) Validate size (<= 50MB) & type (image/video)
+        alt Unsupported / too large
+            Media --> Api : (4.4) 400 Bad Request
+            Api --> Web : (4.5) ApiException -> error
+        else OK
+            Media --> Api : (4.6) { url, mediaType }
+            Api --> Web : (4.7) mediaUrl, mediaType
+        end
+    end
+    Web -> Api : (5) CreatePostAsync(req{groupId, content, mediaUrl, mediaType})
+    Api -> Ctrl : (6) POST /api/posts (JWT)
+    activate Ctrl
+    Ctrl -> Svc : (7) CreateAsync(req, userId)
+    activate Svc
+    Svc -> Svc : (8) ValidateContent: content or media required; len <= 5000
+    Svc -> Filter : (9) IsAllowed(content)
+    Filter --> Svc : (9.1) true / false
+    alt Invalid content (empty/too long/blocked)
+        Svc --> Ctrl : (9.2) throw ArgumentException
+        Ctrl --> Api : (9.3) 400 Bad Request
+        Api --> Web : (9.4) ApiException -> TempData["Error"]
+    else Valid
+        Svc -> Svc : (10) req has GroupId -> CreateGroupPostAsync(groupId, req, userId)
+        Svc -> GRepo : (11) GetByIdAsync(groupId) -> GetActiveGroupAsync
+        GRepo --> Svc : (11.1) Group (else KeyNotFound)
+        Svc -> Svc : (12) if !Members.Any(userId) -> UnauthorizedAccessException
+        alt Not a group member
+            Svc --> Ctrl : (12.1) throw 403
+            Ctrl --> Api : (12.2) 403
+            Api --> Web : (12.3) ApiException -> error
+        else Member
+            Svc -> Svc : (13) BuildPost(req, userId, groupId)
+            Svc -> PRepo : (14) AddAsync(post)
+            Svc -> PRepo : (15) SaveChangesAsync()
+            PRepo -> DB : (16) INSERT Posts
+            DB --> PRepo : (16.1) ok
+            PRepo --> Svc : (16.2) ok
+            Svc --> Ctrl : (17) return postId
+            Ctrl --> Api : (18) 201 Created { id }
+            Api --> Web : (19) ok -> TempData["Info"]="Posted."
+        end
+    end
+    deactivate Svc
+    deactivate Ctrl
+    Web --> View : (20) Redirect back to group
+    View --> Member : (21) New post appears in group feed
+end
+deactivate Web
+deactivate View
+deactivate Member
+@enduml

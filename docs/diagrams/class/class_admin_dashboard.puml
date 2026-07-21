@@ -1,0 +1,57 @@
+@startuml class_admin_dashboard
+title Admin Dashboard Layout (/admin) - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.AdminController" as Web {
+  -_api : ApiClient
+  +Index(keyword : String, page : int) : IActionResult
+}
+class AdminViewModel {
+  +Stats : DashboardStatsResponse
+  +PostsPerDay : List<PostsPerDayItem>
+  +Users : PagedResult<UserResponse>
+  +Keyword : String
+}
+
+class ApiClient {
+  +GetStatsAsync() : DashboardStatsResponse
+  +GetPostsPerDayAsync(days : int) : List<PostsPerDayItem>
+  +GetUsersAsync(keyword : String, page : int, pageSize : int) : PagedResult<UserResponse>
+}
+
+class AdminController <<[Authorize(Roles="Admin")]>> {
+  -_adminService : IAdminService
+  +GetStats() : IActionResult
+  +GetPostsPerDay(days : int) : IActionResult
+  +GetUsers(keyword : String, page : int) : IActionResult
+}
+
+interface IAdminService {
+  +GetStatsAsync() : DashboardStatsResponse
+  +GetPostsPerDayAsync(days : int) : List<PostsPerDayItem>
+  +GetUsersAsync(query : UserQuery) : PagedResult<UserResponse>
+}
+class AdminService {
+  -_repo : IAdminRepository
+}
+
+class AdminRepository {
+  -_context : AppDbContext
+}
+
+Web --> ApiClient
+Web ..> AdminViewModel
+ApiClient ..> AdminController : GET /api/admin/stats , /posts-per-day , /users
+AdminController --> IAdminService
+AdminService ..|> IAdminService
+AdminService --> AdminRepository
+note right of AdminController : Whole controller requires role "Admin"
+@enduml

@@ -1,0 +1,93 @@
+@startuml seq_group_edit
+title Edit Group (Owner only, full BE validation)
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor Owner
+participant ":Edit.cshtml" as View
+participant ":Web.GroupsController" as Web
+participant ":ApiClient" as Api
+participant ":MediaController" as Media
+participant ":GroupsController" as Ctrl
+participant ":GroupService" as Svc
+participant ":GroupRepository" as Repo
+participant ":AppDbContext" as Ctx
+database "SQL Server" as DB
+
+Owner -> View : (1) Click "Edit group"
+activate Owner
+activate View
+View -> Web : (2) GET /Groups/Edit/{id}
+activate Web
+Web -> Api : (3) GetGroupAsync(id)
+Api -> Ctrl : (4) GET /api/groups/{id}
+Ctrl -> Svc : (5) GetByIdAsync(id)
+Svc -> Repo : (6) GetByIdAsync(id)
+Repo -> Ctx : (7) SELECT Group + Members
+Ctx -> DB : (8) query
+DB --> Ctx : (9) row
+Ctx --> Repo : (9.1) Group
+Repo --> Svc : (9.2) Group
+Svc --> Ctrl : (9.3) GroupResponse
+Ctrl --> Api : (9.4) 200 OK
+Api --> Web : (9.5) GroupResponse
+Web --> View : (9.6) Populate form
+deactivate Web
+
+View -> View : (10) Edit fields, optional new avatar; client-side validate
+alt Validation failed
+    View --> Owner : (10.1) Show validation error
+else Validation passed
+    View -> Web : (11) POST /Groups/Edit/{id} (req, avatar)
+    activate Web
+    opt (12) avatar file selected
+        Web -> Api : (12.1) UploadAsync(file)
+        Api -> Media : (12.2) POST /api/media
+        Media --> Api : (12.3) { url }
+        Api --> Web : (12.4) mediaUrl -> req.AvatarUrl
+    end
+    Web -> Api : (13) UpdateGroupAsync(id, req)
+    Api -> Ctrl : (14) PUT /api/groups/{id} (JWT)
+    activate Ctrl
+    Ctrl -> Svc : (15) UpdateGroupAsync(id, req, userId)
+    activate Svc
+    Svc -> Svc : (16) Validate Name not blank
+    Svc -> Repo : (17) GetByIdAsync(id) -> GetActiveGroupAsync
+    Repo --> Svc : (17.1) Group
+    Svc -> Svc : (18) Guard: group exists (KeyNotFound) & OwnerId == userId (Unauthorized)
+    alt Not owner / not found / invalid
+        Svc --> Ctrl : (18.1) throw
+        Ctrl --> Api : (18.2) 400 / 403 / 404
+        Api --> Web : (18.3) ApiException
+        Web --> View : (18.4) Return view + error
+        View --> Owner : (18.5) Show error
+    else Authorized
+        Svc -> Svc : (19) Apply Name/Description/AvatarUrl
+        Svc -> Repo : (20) SaveChangesAsync()
+        Repo -> Ctx : (21) SaveChangesAsync()
+        Ctx -> DB : (22) UPDATE Groups
+        DB --> Ctx : (23) rows affected
+        Ctx --> Repo : (23.1) ok
+        Repo --> Svc : (23.2) ok
+        Svc --> Ctrl : (24) done
+        deactivate Svc
+        Ctrl --> Api : (25) 204 No Content
+        deactivate Ctrl
+        Api --> Web : (26) ok
+        Web --> View : (27) Redirect to Details/{id}
+        View --> Owner : (28) Show updated group
+    end
+    deactivate Web
+end
+deactivate View
+deactivate Owner
+@enduml

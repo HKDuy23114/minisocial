@@ -1,0 +1,103 @@
+@startuml seq_group_create
+title Create Group (Form + Service, full BE validation)
+<style>
+    sequenceDiagram {
+        actor {
+            BackgroundColor white
+            LineThickness 1.0
+        }
+        participant {
+            BackgroundColor white
+            RoundCorner 0
+        }
+        database {
+            BackgroundColor white
+        }
+    }
+</style>
+
+hide footbox
+
+actor User
+participant ":Create.cshtml" as View
+participant ":Web.GroupsController" as Web
+participant ":ApiClient" as Api
+participant ":MediaController" as Media
+participant ":GroupsController" as Ctrl
+participant ":GroupService" as Svc
+participant ":GroupRepository" as Repo
+participant ":AppDbContext" as Ctx
+database "SQL Server" as DB
+
+User -> View : (1) Open "Create group", fill Name/Description, pick avatar file
+activate User
+activate View
+
+View -> View : (2) Client-side validation (Name required)
+alt Validation failed
+    View --> User : (2.1) Show validation error
+else Validation passed
+    View -> Web : (3) POST /Groups/Create (req, avatar) [multipart]
+    activate Web
+
+    Web -> Web : (4) ModelState / Name required check
+    alt Name is empty
+        Web --> View : (4.1) Return view + error
+        View --> User : (4.2) Show error
+    else Name provided
+        opt (5) avatar file selected
+            Web -> Api : (5.1) UploadAsync(stream, fileName, contentType)
+            activate Api
+            Api -> Media : (5.2) POST /api/media (file)
+            activate Media
+            Media --> Api : (5.3) { url, mediaType }
+            deactivate Media
+            Api --> Web : (5.4) mediaUrl
+            deactivate Api
+            Web -> Web : (5.5) req.AvatarUrl = mediaUrl
+        end
+
+        Web -> Api : (6) CreateGroupAsync(req)
+        activate Api
+        Api -> Ctrl : (7) POST /api/groups (JWT)
+        activate Ctrl
+        Ctrl -> Svc : (8) CreateGroupAsync(req, userId)
+        activate Svc
+
+        Svc -> Svc : (9) Validate: Name not blank
+        alt Invalid (ArgumentException)
+            Svc --> Ctrl : (9.1) throw ArgumentException
+            Ctrl --> Api : (9.2) 400 Bad Request
+            Api --> Web : (9.3) ApiException
+            Web --> View : (9.4) Return view + error
+            View --> User : (9.5) Show error
+        else Valid
+            Svc -> Svc : (10) Build Group + add Owner GroupMember
+            Svc -> Repo : (11) AddAsync(group)
+            activate Repo
+            Repo -> Ctx : (12) Groups.AddAsync(group)
+            Repo --> Svc : (13) ok
+            Svc -> Repo : (14) SaveChangesAsync()
+            Repo -> Ctx : (15) SaveChangesAsync()
+            Ctx -> DB : (16) INSERT Groups, GroupMembers
+            activate DB
+            DB --> Ctx : (17) rows affected
+            deactivate DB
+            Ctx --> Repo : (18) ok
+            Repo --> Svc : (19) ok
+            deactivate Repo
+            Svc --> Ctrl : (20) return groupId
+            deactivate Svc
+            Ctrl --> Api : (21) 201 Created { id }
+            deactivate Ctrl
+            Api --> Web : (22) groupId
+            deactivate Api
+            Web --> View : (23) Redirect to Details/{id}
+            View --> User : (24) Show new group page
+        end
+    end
+    deactivate Web
+end
+deactivate View
+deactivate User
+@enduml

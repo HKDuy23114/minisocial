@@ -1,0 +1,50 @@
+@startuml class_group_delete
+hide circle
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+title Class Diagram - Delete Group (soft delete)
+
+class GroupsController {
+  -_service : IGroupService
+  +Delete(id : Guid) : Task<IActionResult>
+}
+
+class GroupService {
+  -_repo : IGroupRepository
+  +DeleteGroupAsync(groupId : Guid, userId : string) : Task
+  -GetActiveGroupAsync(groupId : Guid) : Task<Group>
+}
+
+class GroupRepository {
+  -_context : AppDbContext
+  +GetByIdAsync(id : Guid) : Task<Group>
+  +SaveChangesAsync() : Task
+}
+
+class AppDbContext {
+  +Groups : DbSet<Group>
+  +SaveChangesAsync() : Task<int>
+}
+
+class Group {
+  -Id : Guid
+  -OwnerId : String
+  -IsDeleted : bool
+}
+
+GroupsController --> GroupService
+GroupService --> GroupRepository
+GroupRepository --> AppDbContext
+GroupRepository --> Group
+
+note bottom of GroupService
+  Validate: group exists & not deleted (KeyNotFound);
+  only OwnerId == userId may delete (UnauthorizedAccessException);
+  sets IsDeleted = true (soft delete)
+end note
+@enduml

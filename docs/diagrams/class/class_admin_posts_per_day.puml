@@ -1,0 +1,60 @@
+@startuml class_admin_posts_per_day
+title Admin Posts-per-day Chart - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+class "Web.AdminController" as Web {
+  -_api : ApiClient
+  +Index() : IActionResult
+}
+note bottom of Web : View renders Chart.js line chart\nfrom PostsPerDay items
+
+class ApiClient {
+  +GetPostsPerDayAsync(days : int) : List<PostsPerDayItem>
+}
+class AdminController <<[Authorize(Roles="Admin")]>> {
+  -_adminService : IAdminService
+  +GetPostsPerDay(days : int) : IActionResult
+}
+
+interface IAdminService {
+  +GetPostsPerDayAsync(days : int) : List<PostsPerDayItem>
+}
+class AdminService {
+  -_repo : IAdminRepository
+  +GetPostsPerDayAsync(days : int) : List<PostsPerDayItem>
+}
+
+interface IAdminRepository {
+  +GetPostsPerDayAsync(days : int) : List<PostsPerDayItem>
+}
+class AdminRepository {
+  -_context : AppDbContext
+  +GetPostsPerDayAsync(days : int) : List<PostsPerDayItem>
+}
+class AppDbContext {
+  +Posts : DbSet<Post>
+}
+
+class PostsPerDayItem {
+  +Date : DateTime
+  +Count : int
+}
+
+Web --> ApiClient
+ApiClient ..> AdminController : GET /api/admin/posts-per-day?days
+AdminController --> IAdminService
+AdminService ..|> IAdminService
+AdminService --> IAdminRepository
+AdminRepository ..|> IAdminRepository
+AdminRepository --> AppDbContext
+AdminRepository ..> PostsPerDayItem
+note right of AdminRepository : days < 1 defaults to 7;\ngroup !IsDeleted posts by CreatedDate.Date
+@enduml
