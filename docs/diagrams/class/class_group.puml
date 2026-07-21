@@ -1,0 +1,207 @@
+@startuml class_group
+title Group Module - Class Diagram (BLL: GroupService / DAL: GroupRepository)
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+package "FE.Web (MVC)" {
+  class "Web.GroupsController" as WebGroups {
+    -_api : ApiClient
+    +Index() : IActionResult
+    +Details(id : Guid) : IActionResult
+    +Create() : IActionResult
+    +Create(req : CreateGroupRequest,\n avatar : IFormFile) : IActionResult
+    +Edit(id : Guid) : IActionResult
+    +Edit(id : Guid, req : CreateGroupRequest,\n avatar : IFormFile) : IActionResult
+    +Delete(id : Guid) : IActionResult
+    +Join(id : Guid) : IActionResult
+    +Leave(id : Guid) : IActionResult
+    +Kick(id : Guid, userId : String) : IActionResult
+    +ChangeRole(id : Guid, userId : String,\n role : int) : IActionResult
+    -ApplyAvatarAsync(req : CreateGroupRequest,\n avatar : IFormFile) : Task
+  }
+  class ApiClient {
+    -_http : HttpClient
+    +GetGroupsAsync() : List<GroupResponse>
+    +GetMyGroupsAsync() : List<GroupResponse>
+    +GetGroupAsync(id : Guid) : GroupResponse
+    +CreateGroupAsync(req : CreateGroupRequest) : Guid
+    +UpdateGroupAsync(id : Guid, req : CreateGroupRequest) : void
+    +DeleteGroupAsync(id : Guid) : void
+    +JoinGroupAsync(id : Guid) : void
+    +LeaveGroupAsync(id : Guid) : void
+    +KickMemberAsync(id : Guid, userId : String) : void
+    +ChangeRoleAsync(id : Guid, userId : String, role : int) : void
+    +UploadAsync(stream, fileName, contentType) : MediaUploadResult
+  }
+}
+
+package "API (Presentation)" {
+  class GroupsController {
+    -_service : IGroupService
+    +CurrentUserId : String
+    +GetAll() : IActionResult
+    +Search(query : GroupQuery) : IActionResult
+    +Mine() : IActionResult
+    +GetById(id : Guid) : IActionResult
+    +Create(request : CreateGroupRequest) : IActionResult
+    +Update(id : Guid, request : CreateGroupRequest) : IActionResult
+    +Delete(id : Guid) : IActionResult
+    +Join(id : Guid) : IActionResult
+    +Leave(id : Guid) : IActionResult
+    +Kick(id : Guid, userId : String) : IActionResult
+    +ChangeRole(id : Guid, userId : String,\n request : ChangeRoleRequest) : IActionResult
+  }
+}
+
+package "Application (BLL)" {
+  interface IGroupService {
+    +CreateGroupAsync(req, userId) : Guid
+    +UpdateGroupAsync(groupId, req, userId) : Task
+    +DeleteGroupAsync(groupId, userId) : Task
+    +JoinGroupAsync(groupId, userId) : Task
+    +LeaveGroupAsync(groupId, userId) : Task
+    +KickMemberAsync(groupId, targetUserId, requesterId) : Task
+    +ChangeRoleAsync(groupId, targetUserId, role, requesterId) : Task
+    +GetAllAsync() : List<GroupResponse>
+    +GetJoinedAsync(userId) : List<GroupResponse>
+    +GetByIdAsync(groupId) : GroupResponse
+    +SearchAsync(query : GroupQuery) : PagedResult<GroupResponse>
+  }
+  class GroupService {
+    -_repo : IGroupRepository
+    +CreateGroupAsync(req, userId) : Guid
+    +UpdateGroupAsync(groupId, req, userId) : Task
+    +DeleteGroupAsync(groupId, userId) : Task
+    +JoinGroupAsync(groupId, userId) : Task
+    +LeaveGroupAsync(groupId, userId) : Task
+    +KickMemberAsync(groupId, targetUserId, requesterId) : Task
+    +ChangeRoleAsync(groupId, targetUserId, role, requesterId) : Task
+    +GetAllAsync() : List<GroupResponse>
+    +GetJoinedAsync(userId) : List<GroupResponse>
+    +GetByIdAsync(groupId) : GroupResponse
+    +SearchAsync(query) : PagedResult<GroupResponse>
+    -GetActiveGroupAsync(groupId) : Group
+    -{static} MapToResponse(g : Group) : GroupResponse
+    -{static} NormalizeUrl(value : String) : String
+  }
+}
+
+package "Application.DTOs" {
+  class CreateGroupRequest {
+    +Name : String
+    +Description : String
+    +AvatarUrl : String
+  }
+  class GroupResponse {
+    +Id : Guid
+    +Name : String
+    +Description : String
+    +AvatarUrl : String
+    +OwnerId : String
+    +MemberCount : int
+    +CreatedDate : DateTime
+    +Members : GroupMemberResponse[]
+  }
+  class GroupMemberResponse {
+    +UserId : String
+    +DisplayName : String
+    +AvatarUrl : String
+    +Role : int
+    +JoinedDate : DateTime
+  }
+  class ChangeRoleRequest {
+    +Role : int
+  }
+  class GroupQuery {
+    +Keyword : String
+    +OwnerId : String
+    +MinMembers : int
+    +MaxMembers : int
+    +Page : int
+    +PageSize : int
+  }
+  class "PagedResult<T>" as PagedResult {
+    +Items : List<T>
+    +Total : int
+    +Page : int
+    +PageSize : int
+  }
+}
+
+package "Infrastructure (DAL)" {
+  interface IGroupRepository {
+    +SearchAsync(query : GroupQuery) : PagedResult<Group>
+    +GetAllAsync() : List<Group>
+    +GetJoinedAsync(userId : String) : List<Group>
+    +GetByIdAsync(id : Guid) : Group
+    +AddAsync(group : Group) : Task
+    +SaveChangesAsync() : Task
+  }
+  class GroupRepository {
+    -_context : AppDbContext
+    +SearchAsync(query : GroupQuery) : PagedResult<Group>
+    +GetAllAsync() : List<Group>
+    +GetJoinedAsync(userId : String) : List<Group>
+    +GetByIdAsync(id : Guid) : Group
+    +AddAsync(group : Group) : Task
+    +SaveChangesAsync() : Task
+  }
+  class AppDbContext {
+    +Groups : DbSet<Group>
+    +GroupMembers : DbSet<GroupMember>
+    +Users : DbSet<AppUser>
+    +Posts : DbSet<Post>
+    +SaveChangesAsync() : int
+  }
+}
+
+package "Domain (Entities)" {
+  class Group {
+    +Id : Guid
+    +Name : String
+    +Description : String
+    +AvatarUrl : String
+    +OwnerId : String
+    +CreatedDate : DateTime
+    +IsDeleted : bool
+    +Members : ICollection<GroupMember>
+    +Posts : ICollection<Post>
+  }
+  class GroupMember {
+    +GroupId : Guid
+    +UserId : String
+    +Role : int
+    +JoinedDate : DateTime
+  }
+  enum GroupRole {
+    Member = 0
+    Admin = 1
+    Owner = 2
+  }
+}
+
+WebGroups --> ApiClient
+ApiClient ..> GroupsController : HTTP/JSON
+GroupsController --> IGroupService
+GroupService ..|> IGroupService
+GroupService --> IGroupRepository
+GroupRepository ..|> IGroupRepository
+GroupRepository --> AppDbContext
+AppDbContext --> Group
+Group "1" o-- "many" GroupMember
+GroupMember ..> GroupRole
+GroupService ..> Group
+GroupService ..> GroupResponse
+GroupResponse *-- GroupMemberResponse
+GroupService ..> CreateGroupRequest
+GroupsController ..> ChangeRoleRequest
+GroupsController ..> GroupQuery
+GroupRepository ..> PagedResult
+@enduml

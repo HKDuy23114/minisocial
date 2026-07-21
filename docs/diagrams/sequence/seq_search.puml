@@ -1,0 +1,64 @@
+@startuml seq_search
+title Search (Users / Groups / Posts) - full BE validation
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor User
+participant ":Index.cshtml" as View
+participant ":Web.SearchController" as Web
+participant ":ApiClient" as Api
+participant ":SearchController" as Ctrl
+participant ":SearchService" as Svc
+participant ":SearchRepository" as Repo
+database "SQL Server" as DB
+
+User -> Web : (1) GET /Search?q=keyword
+activate User
+activate Web
+Web -> Web : (2) if q is blank -> return empty SearchResponse
+alt q provided
+    Web -> Api : (3) SearchAsync(q, 15)
+    activate Api
+    Api -> Ctrl : (4) GET /api/search?q=...&limit=15
+    activate Ctrl
+    Ctrl -> Svc : (5) SearchAsync(query, limit)
+    activate Svc
+    Svc -> Svc : (6) Normalize/trim query
+    Svc -> Svc : (7) Validate length: >= 2 and <= 100 (else ArgumentException)
+    alt Invalid query length
+        Svc --> Ctrl : (7.1) throw ArgumentException
+        Ctrl --> Api : (7.2) 400 Bad Request
+        Api --> Web : (7.3) ApiException (caught)
+    else Valid
+        Svc -> Svc : (8) safeLimit = Clamp(limit, 1, 20)
+        Svc -> Repo : (9) SearchAsync(query, safeLimit)
+        activate Repo
+        Repo -> DB : (10) SELECT Users (DisplayName/Bio contains)
+        Repo -> DB : (11) SELECT Groups (Name/Description contains)
+        Repo -> DB : (12) SELECT Posts (Content/Author/Group contains)
+        DB --> Repo : (13) matched rows + totals
+        Repo --> Svc : (14) SearchRepositoryResult
+        deactivate Repo
+        Svc -> Svc : (15) Map Users/Groups/Posts -> SearchResponse
+        Svc --> Ctrl : (16) SearchResponse
+        Ctrl --> Api : (17) 200 OK
+        Api --> Web : (18) SearchResponse
+    end
+    deactivate Svc
+    deactivate Ctrl
+    deactivate Api
+end
+Web --> View : (19) Render results (People / Groups / Posts)
+View --> User : (20) Show grouped search results
+deactivate Web
+deactivate User
+@enduml

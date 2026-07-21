@@ -1,0 +1,81 @@
+@startuml seq_admin_dashboard
+title Admin Dashboard (/admin) - Stats + Posts-per-day chart + Users
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor Admin
+participant ":Index.cshtml" as View
+participant ":Web.AdminController" as Web
+participant ":ApiClient" as Api
+participant ":AdminController" as Ctrl
+participant ":AdminService" as Svc
+participant ":AdminRepository" as Repo
+database "SQL Server" as DB
+
+Admin -> Web : (1) GET /Admin?keyword&page  [Roles=Admin]
+activate Admin
+activate Web
+note over Ctrl : [Authorize(Roles = "Admin")] -> 401/403 if not admin
+
+group STATS (Total Users/Posts/Comments/Groups)
+    Web -> Api : (2) GetStatsAsync()
+    Api -> Ctrl : (3) GET /api/admin/stats (JWT, Admin)
+    activate Ctrl
+    Ctrl -> Svc : (4) GetStatsAsync()
+    Svc -> Repo : (5) GetStatsAsync()
+    Repo -> DB : (6) COUNT users/posts/comments/groups (!IsDeleted)
+    DB --> Repo : (7) counts
+    Repo --> Svc : (7.1) DashboardStatsResponse
+    Svc --> Ctrl : (7.2) DashboardStatsResponse
+    Ctrl --> Api : (8) 200 OK
+    deactivate Ctrl
+    Api --> Web : (9) Stats
+end
+
+group POSTS PER DAY (chart)
+    Web -> Api : (10) GetPostsPerDayAsync(14)
+    Api -> Ctrl : (11) GET /api/admin/posts-per-day?days=14
+    activate Ctrl
+    Ctrl -> Svc : (12) GetPostsPerDayAsync(14)
+    Svc -> Repo : (13) GetPostsPerDayAsync(14)
+    Repo -> DB : (14) Posts since -14d GroupBy(date) -> Count
+    DB --> Repo : (15) [{date, count}]
+    Repo --> Svc : (15.1) List<PostsPerDayItem>
+    Svc --> Ctrl : (15.2) List<PostsPerDayItem>
+    Ctrl --> Api : (16) 200 OK
+    deactivate Ctrl
+    Api --> Web : (17) PostsPerDay
+end
+
+group USERS (paged, searchable)
+    Web -> Api : (18) GetUsersAsync(keyword, page, 10)
+    Api -> Ctrl : (19) GET /api/admin/users?keyword&page
+    activate Ctrl
+    Ctrl -> Svc : (20) GetUsersAsync(query)
+    Svc -> Repo : (21) GetUsersAsync(query)
+    Repo -> DB : (22) SELECT Users (filter keyword, paged)
+    DB --> Repo : (23) rows + total
+    Repo --> Svc : (23.1) PagedResult<AppUser>
+    Svc -> Svc : (24) Map -> PagedResult<UserResponse>
+    Svc --> Ctrl : (24.1) PagedResult<UserResponse>
+    Ctrl --> Api : (25) 200 OK
+    deactivate Ctrl
+    Api --> Web : (26) Users
+end
+
+note over Web : each call wrapped in try/catch ApiException
+Web --> View : (27) Render AdminViewModel(Stats, PostsPerDay, Users)
+View -> View : (28) Chart.js renders Posts-per-day
+View --> Admin : (29) Show dashboard (cards + chart + user table)
+deactivate Web
+deactivate Admin
+@enduml

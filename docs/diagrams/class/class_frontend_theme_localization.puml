@@ -1,0 +1,76 @@
+@startuml class_frontend_theme_localization
+title Frontend - Localization (VI/EN) & Dark/Light Theme - Class Diagram
+hide circle
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor white
+  BorderColor black
+  FontName "Arial"
+  FontStyle bold
+}
+
+package "Localization (VI / EN)" {
+  class LangController {
+    +Set(culture : String, returnUrl : String) : IActionResult
+  }
+  note right of LangController
+    Writes cookie "lang" = vi|en
+    then redirects back (returnUrl)
+  end note
+
+  class Loc <<static>> {
+    +{static} CookieName : String = "lang"
+    +{static} IsEnglish(ctx : HttpContext) : bool
+    +{static} Current(ctx : HttpContext) : String
+    +{static} T(ctx : HttpContext, key : String) : String
+    +{static} L(ctx : HttpContext, key : String) : String
+    +{static} EN(ctx : HttpContext) : bool
+    -{static} Map : Dictionary of key to (Vi, En)
+  }
+  note bottom of Loc
+    Map = in-memory resource store
+    (equivalent of Home.vi.resx / Home.en.resx):
+    key maps to (Vi, En)
+  end note
+
+  class "_Layout.cshtml" as Layout {
+    +returnUrl : String
+    +en : bool
+    __language switcher__
+    +renders html lang = @Loc.Current(Context)
+    +VI link : Lang/Set?culture=vi
+    +EN link : Lang/Set?culture=en
+  }
+}
+
+package "Theme (Dark / Light)" {
+  class "site.js" as SiteJs {
+    +EN : bool = (documentElement.lang == "en")
+    +t(vi, en) : String
+    __theme__
+    +savedTheme = localStorage.getItem("theme")
+    +applyTheme() : sets data-theme on html
+    +onClick(themeToggle) : toggle and persist
+  }
+  note bottom of SiteJs
+    localStorage["theme"] = "dark" or ""
+    html data-theme=dark drives CSS variables
+  end note
+
+  class "site.css (:root)" as Css {
+    +CSS vars : bg / fg / card / border ...
+    +data-theme=dark : overrides
+  }
+}
+
+class User <<Actor>>
+
+User --> Layout : click VI / EN
+Layout --> LangController : GET Lang/Set
+LangController ..> Loc : uses CookieName
+Layout ..> Loc : @Context.L(key) / Context.EN()
+User --> SiteJs : click #themeToggle
+SiteJs --> Css : set data-theme
+SiteJs ..> Layout : reads documentElement.lang
+@enduml

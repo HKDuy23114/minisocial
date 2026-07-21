@@ -1,0 +1,79 @@
+@startuml seq_group_details
+title Group Detail Page (/group/{id}) + Group Feed
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor User
+participant ":Details.cshtml" as View
+participant ":Web.GroupsController" as Web
+participant ":ApiClient" as Api
+participant ":GroupsController" as GCtrl
+participant ":GroupPostsController" as PCtrl
+participant ":GroupService" as GSvc
+participant ":PostService" as PSvc
+participant ":GroupRepository" as GRepo
+participant ":PostRepository" as PRepo
+database "SQL Server" as DB
+
+User -> Web : (1) GET /Groups/Details/{id}
+activate User
+activate Web
+
+Web -> Api : (2) GetGroupAsync(id)
+activate Api
+Api -> GCtrl : (3) GET /api/groups/{id}
+activate GCtrl
+GCtrl -> GSvc : (4) GetByIdAsync(id)
+activate GSvc
+GSvc -> GRepo : (5) GetByIdAsync(id) (Include Members.User)
+GRepo -> DB : (6) SELECT group + members
+DB --> GRepo : (7) row
+GRepo --> GSvc : (7.1) Group
+GSvc -> GSvc : (8) if null/IsDeleted -> return null
+GSvc --> GCtrl : (9) GroupResponse
+deactivate GSvc
+GCtrl --> Api : (10) 200 / 404
+deactivate GCtrl
+Api --> Web : (11) GroupResponse
+deactivate Api
+
+alt Group not found
+    Web --> User : (11.1) 404 Not Found
+else Found
+    Web -> Web : (12) IsOwner = OwnerId == uid; IsMember = Members.Any(uid)
+
+    Web -> Api : (13) GetGroupFeedAsync(id, 1, 30)
+    activate Api
+    Api -> PCtrl : (14) GET /api/groups/{id}/posts?page=1
+    activate PCtrl
+    PCtrl -> PSvc : (15) GetGroupFeedAsync(id, query)
+    activate PSvc
+    PSvc -> GRepo : (16) GetByIdAsync(id) -> GetActiveGroupAsync (guard)
+    GRepo --> PSvc : (16.1) Group (else KeyNotFound)
+    PSvc -> PRepo : (17) GetGroupFeedAsync(id, query)
+    PRepo -> DB : (18) SELECT posts WHERE GroupId=id (paged)
+    DB --> PRepo : (19) rows
+    PRepo --> PSvc : (19.1) PagedResult<Post>
+    PSvc -> PSvc : (20) Map -> PagedResult<PostResponse>
+    PSvc --> PCtrl : (21) feed
+    deactivate PSvc
+    PCtrl --> Api : (22) 200 OK
+    deactivate PCtrl
+    Api --> Web : (23) Feed
+    deactivate Api
+
+    Web --> View : (24) Render GroupDetailsViewModel(Group, IsOwner, IsMember, Feed)
+    View --> User : (25) Show group + members + posts (Join/Leave, Create post if member)
+end
+deactivate Web
+deactivate User
+@enduml

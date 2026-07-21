@@ -1,0 +1,94 @@
+@startuml seq_group_member_manage
+title Group Member Management (Owner: Kick / Change Role) - full BE validation
+<style>
+    sequenceDiagram {
+        actor { BackgroundColor white
+            LineThickness 1.0 }
+        participant { BackgroundColor white
+            RoundCorner 0 }
+        database { BackgroundColor white }
+    }
+</style>
+
+hide footbox
+
+actor Owner
+participant ":Details.cshtml" as View
+participant ":Web.GroupsController" as Web
+participant ":ApiClient" as Api
+participant ":GroupsController" as Ctrl
+participant ":GroupService" as Svc
+participant ":GroupRepository" as Repo
+database "SQL Server" as DB
+
+group KICK MEMBER
+    Owner -> View : (1) Click "Remove" on a member
+    activate Owner
+    View -> Web : (2) POST /Groups/Kick/{id} (userId)
+    activate Web
+    Web -> Api : (3) KickMemberAsync(id, userId)
+    Api -> Ctrl : (4) DELETE /api/groups/{id}/members/{userId} (JWT)
+    activate Ctrl
+    Ctrl -> Svc : (5) KickMemberAsync(id, targetUserId, requesterId)
+    activate Svc
+    Svc -> Repo : (6) GetActiveGroupAsync(id)
+    Repo -> DB : (7) SELECT group + members
+    DB --> Repo : (7.1) row
+    Repo --> Svc : (7.2) Group (else KeyNotFound)
+    Svc -> Svc : (8) Guards: OwnerId==requester (Unauthorized);\n target != Owner (InvalidOperation);\n member exists (InvalidOperation)
+    alt Guard failed
+        Svc --> Ctrl : (8.1) throw
+        Ctrl --> Api : (8.2) 400 / 403 / 404
+        Api --> Web : (8.3) ApiException -> TempData["Error"]
+    else OK
+        Svc -> Svc : (9) Members.Remove(member)
+        Svc -> Repo : (10) SaveChangesAsync()
+        Repo -> DB : (11) DELETE GroupMembers
+        DB --> Repo : (11.1) ok
+        Repo --> Svc : (11.2) ok
+        Svc --> Ctrl : (12) done
+    end
+    deactivate Svc
+    Ctrl --> Api : (13) 204 / error
+    deactivate Ctrl
+    Api --> Web : (14) result
+    Web --> View : (15) Redirect to Details/{id}
+    deactivate Web
+    View --> Owner : (16) Member removed from list
+end
+
+group CHANGE ROLE
+    Owner -> View : (17) Click "Make admin" / "Make member"
+    View -> Web : (18) POST /Groups/ChangeRole/{id} (userId, role)
+    activate Web
+    Web -> Api : (19) ChangeRoleAsync(id, userId, role)
+    Api -> Ctrl : (20) PUT /api/groups/{id}/members/{userId}/role (ChangeRoleRequest)
+    activate Ctrl
+    Ctrl -> Svc : (21) ChangeRoleAsync(id, targetUserId, role, requesterId)
+    activate Svc
+    Svc -> Svc : (22) if !Enum.IsDefined(GroupRole, role) -> ArgumentException
+    Svc -> Repo : (23) GetActiveGroupAsync(id)
+    Repo --> Svc : (23.1) Group
+    Svc -> Svc : (24) Guards: OwnerId==requester (Unauthorized);\n target != Owner (InvalidOperation);\n member exists (InvalidOperation)
+    alt Guard failed / invalid role
+        Svc --> Ctrl : (24.1) throw
+        Ctrl --> Api : (24.2) 400 / 403 / 404
+        Api --> Web : (24.3) ApiException -> TempData["Error"]
+    else OK
+        Svc -> Svc : (25) member.Role = role
+        Svc -> Repo : (26) SaveChangesAsync()
+        Repo -> DB : (27) UPDATE GroupMembers SET Role
+        DB --> Repo : (27.1) ok
+        Repo --> Svc : (27.2) ok
+        Svc --> Ctrl : (28) done
+    end
+    deactivate Svc
+    Ctrl --> Api : (29) 204 / error
+    deactivate Ctrl
+    Api --> Web : (30) result
+    Web --> View : (31) Redirect to Details/{id}
+    deactivate Web
+    View --> Owner : (32) Member role updated
+end
+deactivate Owner
+@enduml
